@@ -141,6 +141,35 @@
   }
 
   .footnote{text-align:center;color:var(--muted);font-size:11px;margin-top:30px;font-family:'IBM Plex Mono',monospace;}
+
+  /* ---- Views ---- */
+  .view{display:none;}
+  .view.active{display:block;}
+
+  /* ---- Calendar ---- */
+  .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .cal-nav{all:unset;cursor:pointer;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:var(--surface-soft);font-size:16px;color:var(--violet);}
+  .cal-nav:hover{background:var(--grad-soft);}
+  .cal-month{font-family:'Sora',sans-serif;font-weight:700;font-size:15px;text-transform:capitalize;}
+  .cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:6px;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;}
+  .cal-day{min-height:68px;border:1px solid var(--border);border-radius:10px;padding:6px;font-size:11px;cursor:pointer;background:var(--surface);transition:border-color .15s ease;}
+  .cal-day:hover{border-color:var(--violet);}
+  .cal-day.outside{opacity:0.3;cursor:default;}
+  .cal-day.today{border-color:var(--violet);box-shadow:0 0 0 2px rgba(139,92,246,0.15) inset;}
+  .cal-day .num{font-family:'IBM Plex Mono',monospace;font-weight:600;margin-bottom:4px;font-size:11px;}
+  .cal-pill{display:block;font-size:9px;padding:2px 5px;border-radius:5px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;}
+  .cal-pill.late{background:var(--red);}
+  .cal-pill.progress{background:var(--orange);}
+  .cal-pill.upcoming{background:var(--blue);}
+  .cal-pill.done{background:var(--green);}
+  .cal-pill.blocked{background:var(--muted);}
+  .cal-pill.more{background:var(--surface-soft);color:var(--muted);}
+  @media (max-width:600px){
+    .cal-day{min-height:46px;padding:4px;}
+    .cal-pill{display:none;}
+    .cal-day.has-tasks::after{content:"";display:block;width:5px;height:5px;border-radius:50%;background:var(--violet);margin-top:2px;}
+  }
 </style>
 </head>
 <body>
@@ -148,8 +177,8 @@
   <div class="topbar">
     <div class="brand"><span class="dot"></span>ARTIST OS</div>
     <div class="nav">
-      <div class="tab active">Tableau de bord</div>
-      <div class="tab soon">Calendrier</div>
+      <div class="tab active" id="navDashboard" onclick="switchView('dashboard')">Tableau de bord</div>
+      <div class="tab" id="navCalendar" onclick="switchView('calendar')">Calendrier</div>
       <div class="tab soon">Projets</div>
       <div class="tab soon">Tâches</div>
     </div>
@@ -160,51 +189,80 @@
   </div>
 
   <div class="wrap">
-    <div class="hero">
-      <div>
-        <h1 id="heroTitle">Bon retour</h1>
-        <p id="heroSub">Voici ce qui te concerne aujourd'hui.</p>
-      </div>
-      <span class="badge" id="dateBadge"></span>
-    </div>
 
-    <div class="grid">
-      <div>
-        <div class="card project-card">
-          <div class="health" id="healthDot">🟢</div>
-          <div style="flex:1;">
-            <div class="project-title" id="projectTitle">—</div>
-            <div class="project-meta" id="projectMeta">—</div>
-            <div class="progress-outer"><div class="progress-inner" id="progressBar" style="width:0%"></div></div>
-            <div class="progress-label" id="progressLabel">0% prêt</div>
+    <div id="view-dashboard" class="view active">
+      <div class="hero">
+        <div>
+          <h1 id="heroTitle">Bon retour</h1>
+          <p id="heroSub">Voici ce qui te concerne aujourd'hui.</p>
+        </div>
+        <span class="badge" id="dateBadge"></span>
+      </div>
+
+      <div class="grid">
+        <div>
+          <div class="card project-card">
+            <div class="health" id="healthDot">🟢</div>
+            <div style="flex:1;">
+              <div class="project-title" id="projectTitle">—</div>
+              <div class="project-meta" id="projectMeta">—</div>
+              <div class="progress-outer"><div class="progress-inner" id="progressBar" style="width:0%"></div></div>
+              <div class="progress-label" id="progressLabel">0% prêt</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>À faire aujourd'hui / bientôt</h2>
+            <div id="todayList"></div>
+          </div>
+
+          <div class="card">
+            <h2>Toutes mes tâches</h2>
+            <div id="allTasksList"></div>
           </div>
         </div>
 
-        <div class="card">
-          <h2>À faire aujourd'hui / bientôt</h2>
-          <div id="todayList"></div>
-        </div>
+        <div>
+          <div class="card">
+            <h2>Alertes</h2>
+            <div id="alertsList"></div>
+          </div>
 
-        <div class="card">
-          <h2>Toutes mes tâches</h2>
-          <div id="allTasksList"></div>
-        </div>
-      </div>
-
-      <div>
-        <div class="card">
-          <h2>Alertes</h2>
-          <div id="alertsList"></div>
-        </div>
-
-        <div class="card">
-          <h2>Notifications récentes</h2>
-          <div id="notifList"></div>
+          <div class="card">
+            <h2>Notifications récentes</h2>
+            <div id="notifList"></div>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="footnote">Données stockées localement dans ce navigateur — module Tableau de bord + Rôles (V1, étape 1/11)</div>
+    <div id="view-calendar" class="view">
+      <div class="hero">
+        <div>
+          <h1>Calendrier</h1>
+          <p id="calSub">Toutes les échéances qui te concernent, par mois.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="cal-header">
+          <button class="cal-nav" onclick="shiftMonth(-1)">‹</button>
+          <div class="cal-month" id="calMonthLabel">—</div>
+          <button class="cal-nav" onclick="shiftMonth(1)">›</button>
+        </div>
+        <div class="cal-weekdays">
+          <span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+      </div>
+
+      <div class="card" id="calDayCard" style="display:none;">
+        <h2 id="calDayTitle">—</h2>
+        <div id="calDayTasks"></div>
+      </div>
+    </div>
+
+    <div class="footnote">Données stockées localement dans ce navigateur — modules Tableau de bord + Rôles + Calendrier (V1, étape 2/11)</div>
   </div>
 
 <script>
@@ -441,7 +499,91 @@ function renderAll(){
   renderAllTasks();
   renderAlerts();
   renderNotifications();
+  if(document.getElementById('view-calendar').classList.contains('active')){
+    renderCalendar();
+  }
 }
+
+/* ============ CALENDAR ============ */
+let currentMonth = new Date();
+currentMonth.setDate(1);
+
+function switchView(view){
+  document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
+  document.getElementById('navCalendar').classList.toggle('active', view === 'calendar');
+  document.getElementById('view-dashboard').classList.toggle('active', view === 'dashboard');
+  document.getElementById('view-calendar').classList.toggle('active', view === 'calendar');
+  if(view === 'calendar') renderCalendar();
+}
+window.switchView = switchView;
+
+function shiftMonth(delta){
+  currentMonth.setMonth(currentMonth.getMonth() + delta);
+  renderCalendar();
+}
+window.shiftMonth = shiftMonth;
+
+function tasksByDate(){
+  const map = {};
+  myTasks().forEach(t => {
+    (map[t.due] = map[t.due] || []).push(t);
+  });
+  return map;
+}
+
+function renderCalendar(){
+  const label = currentMonth.toLocaleDateString('fr-FR', {month:'long', year:'numeric'});
+  document.getElementById('calMonthLabel').textContent = label;
+
+  const map = tasksByDate();
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startOffset = (firstDay.getDay() + 6) % 7; // Monday-first
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const prevMonthDays = new Date(year, month, 0).getDate();
+  const todayStr = new Date().toISOString().slice(0,10);
+
+  let cells = [];
+  for(let i = startOffset - 1; i >= 0; i--){
+    cells.push({day: prevMonthDays - i, outside: true, dateStr: null});
+  }
+  for(let d = 1; d <= daysInMonth; d++){
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    cells.push({day: d, outside: false, dateStr});
+  }
+  while(cells.length % 7 !== 0){
+    cells.push({day: '', outside: true, dateStr: null});
+  }
+
+  const el = document.getElementById('calGrid');
+  el.innerHTML = cells.map(c => {
+    if(c.outside) return `<div class="cal-day outside"><div class="num">${c.day}</div></div>`;
+    const tasks = map[c.dateStr] || [];
+    const isToday = c.dateStr === todayStr;
+    const pills = tasks.slice(0,3).map(t => {
+      const eff = effectiveStatus(t);
+      const cls = statusDotClass(eff);
+      return `<span class="cal-pill ${cls}">${t.title}</span>`;
+    }).join('');
+    const more = tasks.length > 3 ? `<span class="cal-pill more">+${tasks.length - 3}</span>` : '';
+    const hasTasks = tasks.length ? 'has-tasks' : '';
+    return `<div class="cal-day ${isToday?'today':''} ${hasTasks}" onclick="showDayTasks('${c.dateStr}')"><div class="num">${c.day}</div>${pills}${more}</div>`;
+  }).join('');
+}
+
+function showDayTasks(dateStr){
+  const map = tasksByDate();
+  const tasks = map[dateStr] || [];
+  const card = document.getElementById('calDayCard');
+  const title = document.getElementById('calDayTitle');
+  const list = document.getElementById('calDayTasks');
+  const d = new Date(dateStr + 'T00:00:00');
+  title.textContent = d.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'});
+  list.innerHTML = tasks.length ? tasks.map(t => taskRowHtml(t)).join('') : `<div class="empty">Aucune tâche ce jour-là pour ce rôle.</div>`;
+  card.style.display = 'block';
+}
+window.showDayTasks = showDayTasks;
 
 /* ============ INTERACTIONS ============ */
 function changeStatus(taskId, newStatus){
