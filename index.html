@@ -170,6 +170,33 @@
     .cal-pill{display:none;}
     .cal-day.has-tasks::after{content:"";display:block;width:5px;height:5px;border-radius:50%;background:var(--violet);margin-top:2px;}
   }
+
+  /* ---- Projects ---- */
+  .proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-bottom:18px;}
+  .proj-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;cursor:pointer;
+    box-shadow:var(--shadow);transition:transform .15s ease, border-color .15s ease;
+  }
+  .proj-card:hover{transform:translateY(-2px);border-color:var(--violet);}
+  .proj-card.current{border-color:var(--violet);background:var(--grad-soft);}
+  .proj-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .proj-health{font-size:18px;}
+  .proj-card h3{font-family:'Sora',sans-serif;font-size:16px;margin:0 0 4px;}
+  .proj-card .proj-meta{font-size:12px;color:var(--muted);margin-bottom:10px;}
+  .proj-card .progress-outer{margin-top:0;}
+  .proj-card .progress-label{margin-top:6px;}
+
+  .new-project-form{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
+  .new-project-form input[type="text"], .new-project-form input[type="date"], .new-project-form select{
+    border:1px solid var(--border);border-radius:10px;padding:9px 12px;font-size:13px;font-family:'Inter',sans-serif;
+    background:var(--surface-soft);color:var(--text);
+  }
+  .new-project-form input[type="text"]{flex:1;min-width:180px;}
+  .cta-inline{
+    all:unset;cursor:pointer;padding:10px 18px;border-radius:10px;background:var(--grad);color:#fff;
+    font-weight:600;font-size:13px;box-shadow:0 8px 20px -8px rgba(139,92,246,0.5);
+  }
+  .form-hint{font-size:11.5px;color:var(--muted);margin:0;line-height:1.5;}
 </style>
 </head>
 <body>
@@ -179,7 +206,7 @@
     <div class="nav">
       <div class="tab active" id="navDashboard" onclick="switchView('dashboard')">Tableau de bord</div>
       <div class="tab" id="navCalendar" onclick="switchView('calendar')">Calendrier</div>
-      <div class="tab soon">Projets</div>
+      <div class="tab" id="navProjects" onclick="switchView('projects')">Projets</div>
       <div class="tab soon">Tâches</div>
     </div>
     <div class="role-select">
@@ -262,6 +289,32 @@
       </div>
     </div>
 
+    <div id="view-projects" class="view">
+      <div class="hero">
+        <div>
+          <h1>Projets</h1>
+          <p>Toutes tes sorties et productions. Clique une carte pour l'ouvrir dans le tableau de bord.</p>
+        </div>
+      </div>
+
+      <div class="proj-grid" id="projectsList"></div>
+
+      <div class="card">
+        <h2>+ Nouvelle sortie musicale</h2>
+        <form id="newProjectForm" class="new-project-form">
+          <input type="text" id="npTitle" placeholder="Titre (ex. Nouveau Single)" required>
+          <select id="npType">
+            <option value="Single">Single</option>
+            <option value="EP">EP</option>
+            <option value="Album">Album</option>
+          </select>
+          <input type="date" id="npDate" required>
+          <button type="submit" class="cta-inline">Générer le plan de sortie</button>
+        </form>
+        <p class="form-hint">L'application crée automatiquement les tâches (arrangement, mixage, distribution, image, vidéo, promotion) avec des échéances calculées à rebours de la date de sortie, comme décrit dans le cahier des charges.</p>
+      </div>
+    </div>
+
     <div class="footnote">Données stockées localement dans ce navigateur — modules Tableau de bord + Rôles + Calendrier (V1, étape 2/11)</div>
   </div>
 
@@ -290,28 +343,27 @@ function seedData(){
   };
   return {
     currentRole: 'artiste',
-    project: {
-      title: 'DESTIN',
-      type: 'Single',
-      releaseDate: '2026-10-15',
-    },
+    currentProjectId: 'destin',
+    projects: [
+      {id:'destin', title:'DESTIN', type:'Single', releaseDate:'2026-10-15'}
+    ],
     tasks: [
-      {id:'t1', title:'Arrangement du morceau', role:'arrangeur', status:'terminé', due:d(-20), dependsOn:[]},
-      {id:'t2', title:'Mixage', role:'arrangeur', status:'en retard', due:d(-2), dependsOn:['t1']},
-      {id:'t3', title:'Mastering', role:'producteur', status:'à venir', due:d(3), dependsOn:['t2']},
-      {id:'t4', title:'Transmission au distributeur', role:'producteur', status:'à venir', due:d(6), dependsOn:['t3']},
-      {id:'t5', title:'Pitching plateformes', role:'producteur', status:'à venir', due:d(9), dependsOn:['t4']},
-      {id:'t6', title:'Shooting pochette', role:'photographe', status:'en cours', due:d(1), dependsOn:[]},
-      {id:'t7', title:'Sélection & retouches photos', role:'photographe', status:'à venir', due:d(3), dependsOn:['t6']},
-      {id:'t8', title:'Création pochette', role:'infographiste', status:'à venir', due:d(5), dependsOn:['t7']},
-      {id:'t9', title:'Visuels réseaux sociaux', role:'infographiste', status:'à venir', due:d(8), dependsOn:['t8']},
-      {id:'t10', title:'Tournage clip', role:'videaste', status:'en cours', due:d(2), dependsOn:[]},
-      {id:'t11', title:'Montage clip', role:'videaste', status:'à venir', due:d(7), dependsOn:['t10']},
-      {id:'t12', title:'Intégration audio final', role:'videaste', status:'à venir', due:d(9), dependsOn:['t11','t2']},
-      {id:'t13', title:'Proposition de looks', role:'styliste', status:'terminé', due:d(-5), dependsOn:[]},
-      {id:'t14', title:'Teaser TikTok', role:'cm', status:'à venir', due:d(10), dependsOn:['t9']},
-      {id:'t15', title:'Compte à rebours Instagram', role:'cm', status:'à venir', due:d(13), dependsOn:[]},
-      {id:'t16', title:'Confirmer budget clip', role:'manager', status:'en cours', due:d(1), dependsOn:[]},
+      {id:'t1', projectId:'destin', title:'Arrangement du morceau', role:'arrangeur', status:'terminé', due:d(-20), dependsOn:[]},
+      {id:'t2', projectId:'destin', title:'Mixage', role:'arrangeur', status:'en retard', due:d(-2), dependsOn:['t1']},
+      {id:'t3', projectId:'destin', title:'Mastering', role:'producteur', status:'à venir', due:d(3), dependsOn:['t2']},
+      {id:'t4', projectId:'destin', title:'Transmission au distributeur', role:'producteur', status:'à venir', due:d(6), dependsOn:['t3']},
+      {id:'t5', projectId:'destin', title:'Pitching plateformes', role:'producteur', status:'à venir', due:d(9), dependsOn:['t4']},
+      {id:'t6', projectId:'destin', title:'Shooting pochette', role:'photographe', status:'en cours', due:d(1), dependsOn:[]},
+      {id:'t7', projectId:'destin', title:'Sélection & retouches photos', role:'photographe', status:'à venir', due:d(3), dependsOn:['t6']},
+      {id:'t8', projectId:'destin', title:'Création pochette', role:'infographiste', status:'à venir', due:d(5), dependsOn:['t7']},
+      {id:'t9', projectId:'destin', title:'Visuels réseaux sociaux', role:'infographiste', status:'à venir', due:d(8), dependsOn:['t8']},
+      {id:'t10', projectId:'destin', title:'Tournage clip', role:'videaste', status:'en cours', due:d(2), dependsOn:[]},
+      {id:'t11', projectId:'destin', title:'Montage clip', role:'videaste', status:'à venir', due:d(7), dependsOn:['t10']},
+      {id:'t12', projectId:'destin', title:'Intégration audio final', role:'videaste', status:'à venir', due:d(9), dependsOn:['t11','t2']},
+      {id:'t13', projectId:'destin', title:'Proposition de looks', role:'styliste', status:'terminé', due:d(-5), dependsOn:[]},
+      {id:'t14', projectId:'destin', title:'Teaser TikTok', role:'cm', status:'à venir', due:d(10), dependsOn:['t9']},
+      {id:'t15', projectId:'destin', title:'Compte à rebours Instagram', role:'cm', status:'à venir', due:d(13), dependsOn:[]},
+      {id:'t16', projectId:'destin', title:'Confirmer budget clip', role:'manager', status:'en cours', due:d(1), dependsOn:[]},
     ],
     notifications: [
       {time:'09:12', text:'⚠️ Le mixage arrive à échéance dans 2 jours.'},
@@ -322,10 +374,24 @@ function seedData(){
   };
 }
 
+function migrate(data){
+  // Older versions of this app stored a single "project" object instead of "projects".
+  if(data.project && !data.projects){
+    data.projects = [{...data.project, id:'destin'}];
+    data.currentProjectId = 'destin';
+    (data.tasks||[]).forEach(t => { if(!t.projectId) t.projectId = 'destin'; });
+    delete data.project;
+  }
+  if(!data.currentProjectId && data.projects && data.projects.length){
+    data.currentProjectId = data.projects[0].id;
+  }
+  return data;
+}
+
 function loadData(){
   const raw = localStorage.getItem(STORAGE_KEY);
   if(raw){
-    try{ return JSON.parse(raw); }catch(e){}
+    try{ return migrate(JSON.parse(raw)); }catch(e){}
   }
   const seeded = seedData();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
@@ -339,6 +405,8 @@ let DATA = loadData();
 
 /* ============ HELPERS ============ */
 function taskById(id){ return DATA.tasks.find(t=>t.id===id); }
+function currentProject(){ return DATA.projects.find(p => p.id === DATA.currentProjectId) || DATA.projects[0]; }
+function projectTasks(projectId){ return DATA.tasks.filter(t => t.projectId === projectId); }
 
 function effectiveStatus(task){
   // A task is "bloqué" if it depends on a task that isn't "terminé", unless it's already done itself.
@@ -387,22 +455,27 @@ function renderRoleSelect(){
 
 function myTasks(){
   const role = DATA.currentRole;
-  if(role === 'artiste' || role === 'manager') return DATA.tasks; // vue globale
-  return DATA.tasks.filter(t => t.role === role);
+  const inProject = DATA.tasks.filter(t => t.projectId === DATA.currentProjectId);
+  if(role === 'artiste' || role === 'manager') return inProject; // vue globale
+  return inProject.filter(t => t.role === role);
 }
 
-function computeHealth(){
-  const late = DATA.tasks.filter(t => effectiveStatus(t) === 'en retard');
-  const blocked = DATA.tasks.filter(t => { const s = effectiveStatus(t); return s && s.status === 'bloqué'; });
+function computeHealth(projectId){
+  const pid = projectId || DATA.currentProjectId;
+  const tasks = projectTasks(pid);
+  const late = tasks.filter(t => effectiveStatus(t) === 'en retard');
+  const blocked = tasks.filter(t => { const s = effectiveStatus(t); return s && s.status === 'bloqué'; });
   if(late.length > 0) return 'red';
   if(blocked.length > 1) return 'orange';
   return 'green';
 }
 
-function computeProgress(){
-  const total = DATA.tasks.length;
-  const done = DATA.tasks.filter(t => t.status === 'terminé').length;
-  return Math.round((done/total)*100);
+function computeProgress(projectId){
+  const pid = projectId || DATA.currentProjectId;
+  const tasks = projectTasks(pid);
+  if(!tasks.length) return 0;
+  const done = tasks.filter(t => t.status === 'terminé').length;
+  return Math.round((done/tasks.length)*100);
 }
 
 function renderHero(){
@@ -416,8 +489,9 @@ function renderHero(){
 }
 
 function renderProject(){
-  document.getElementById('projectTitle').textContent = DATA.project.title;
-  document.getElementById('projectMeta').textContent = `${DATA.project.type} · Sortie le ${new Date(DATA.project.releaseDate).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}`;
+  const proj = currentProject();
+  document.getElementById('projectTitle').textContent = proj.title;
+  document.getElementById('projectMeta').textContent = `${proj.type} · Sortie le ${new Date(proj.releaseDate).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}`;
   const pct = computeProgress();
   document.getElementById('progressBar').style.width = pct + '%';
   document.getElementById('progressLabel').textContent = pct + '% des tâches terminées';
@@ -502,6 +576,9 @@ function renderAll(){
   if(document.getElementById('view-calendar').classList.contains('active')){
     renderCalendar();
   }
+  if(document.getElementById('view-projects').classList.contains('active')){
+    renderProjectsList();
+  }
 }
 
 /* ============ CALENDAR ============ */
@@ -511,9 +588,12 @@ currentMonth.setDate(1);
 function switchView(view){
   document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
   document.getElementById('navCalendar').classList.toggle('active', view === 'calendar');
+  document.getElementById('navProjects').classList.toggle('active', view === 'projects');
   document.getElementById('view-dashboard').classList.toggle('active', view === 'dashboard');
   document.getElementById('view-calendar').classList.toggle('active', view === 'calendar');
+  document.getElementById('view-projects').classList.toggle('active', view === 'projects');
   if(view === 'calendar') renderCalendar();
+  if(view === 'projects') renderProjectsList();
 }
 window.switchView = switchView;
 
@@ -606,6 +686,119 @@ function changeStatus(taskId, newStatus){
   renderAll();
 }
 window.changeStatus = changeStatus;
+
+/* ============ PROJECTS ============ */
+const RELEASE_TEMPLATE = [
+  {key:'arrangement', title:'Arrangement', role:'arrangeur', offset:-35, deps:[]},
+  {key:'enregistrement', title:'Enregistrement', role:'arrangeur', offset:-32, deps:['arrangement']},
+  {key:'mixage', title:'Mixage', role:'arrangeur', offset:-28, deps:['enregistrement']},
+  {key:'mastering', title:'Mastering', role:'producteur', offset:-24, deps:['mixage']},
+  {key:'prepa_master', title:'Préparation du master', role:'producteur', offset:-21, deps:['mastering']},
+  {key:'transmission', title:'Transmission au distributeur', role:'producteur', offset:-20, deps:['prepa_master']},
+  {key:'pitching', title:'Pitching plateformes', role:'producteur', offset:-17, deps:['transmission']},
+  {key:'verification', title:'Vérification métadonnées', role:'producteur', offset:-9, deps:['pitching']},
+
+  {key:'shooting', title:'Shooting pochette', role:'photographe', offset:-18, deps:[]},
+  {key:'selection', title:'Sélection & retouches photos', role:'photographe', offset:-14, deps:['shooting']},
+  {key:'pochette', title:'Création pochette', role:'infographiste', offset:-12, deps:['selection']},
+  {key:'affiches', title:'Affiches', role:'infographiste', offset:-9, deps:['pochette']},
+  {key:'visuels', title:'Visuels réseaux sociaux', role:'infographiste', offset:-8, deps:['pochette']},
+
+  {key:'prepa_video', title:'Préparation vidéo', role:'videaste', offset:-19, deps:[]},
+  {key:'tournage', title:'Tournage clip', role:'videaste', offset:-13, deps:['prepa_video']},
+  {key:'montage', title:'Montage clip', role:'videaste', offset:-7, deps:['tournage']},
+  {key:'audio_final', title:'Intégration audio final', role:'videaste', offset:-6, deps:['montage','mixage']},
+  {key:'validation_video', title:'Validation version finale', role:'videaste', offset:-3, deps:['audio_final']},
+
+  {key:'teaser', title:'Teaser', role:'cm', offset:-9, deps:['visuels']},
+  {key:'extrait', title:'Extrait promotionnel', role:'cm', offset:-6, deps:['validation_video']},
+  {key:'compte_a_rebours', title:'Compte à rebours', role:'cm', offset:-1, deps:['affiches']},
+  {key:'communication', title:'Communication de sortie', role:'cm', offset:0, deps:['verification','compte_a_rebours']},
+];
+
+function addDaysTo(dateStr, n){
+  const dt = new Date(dateStr + 'T00:00:00');
+  dt.setDate(dt.getDate() + n);
+  return dt.toISOString().slice(0,10);
+}
+
+function slugify(str){
+  return str.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'') || 'projet';
+}
+
+function generateReleasePlan(project){
+  const idPrefix = project.id;
+  RELEASE_TEMPLATE.forEach(item => {
+    DATA.tasks.push({
+      id: `${idPrefix}_${item.key}`,
+      projectId: idPrefix,
+      title: item.title,
+      role: item.role,
+      status: 'à venir',
+      due: addDaysTo(project.releaseDate, item.offset),
+      dependsOn: item.deps.map(k => `${idPrefix}_${k}`),
+    });
+  });
+}
+
+function renderProjectsList(){
+  const el = document.getElementById('projectsList');
+  el.innerHTML = DATA.projects.map(p => {
+    const pct = computeProgress(p.id);
+    const health = computeHealth(p.id);
+    const healthIcon = health === 'green' ? '🟢' : health === 'orange' ? '🟠' : '🔴';
+    const isCurrent = p.id === DATA.currentProjectId;
+    return `
+      <div class="proj-card ${isCurrent?'current':''}" onclick="setCurrentProject('${p.id}')">
+        <div class="proj-card-top">
+          <h3>${p.title}</h3>
+          <span class="proj-health">${healthIcon}</span>
+        </div>
+        <div class="proj-meta">${p.type} · Sortie le ${new Date(p.releaseDate).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</div>
+        <div class="progress-outer"><div class="progress-inner" style="width:${pct}%"></div></div>
+        <div class="progress-label">${pct}% terminé</div>
+      </div>`;
+  }).join('');
+}
+
+function setCurrentProject(id){
+  DATA.currentProjectId = id;
+  saveData(DATA);
+  switchView('dashboard');
+  renderAll();
+}
+window.setCurrentProject = setCurrentProject;
+
+document.getElementById('newProjectForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const title = document.getElementById('npTitle').value.trim();
+  const type = document.getElementById('npType').value;
+  const releaseDate = document.getElementById('npDate').value;
+  if(!title || !releaseDate) return;
+
+  let id = slugify(title);
+  if(DATA.projects.some(p => p.id === id)){
+    id = id + '_' + Math.random().toString(36).slice(2,6);
+  }
+
+  const project = {id, title, type, releaseDate};
+  DATA.projects.push(project);
+  generateReleasePlan(project);
+
+  DATA.notifications.unshift({
+    time: 'À l\'instant',
+    text: `📅 Nouvelle sortie créée : ${title}. Le plan de production a été généré automatiquement (${RELEASE_TEMPLATE.length} tâches).`
+  });
+
+  DATA.currentProjectId = id;
+  saveData(DATA);
+
+  e.target.reset();
+  switchView('dashboard');
+  renderAll();
+});
 
 /* ============ INIT ============ */
 renderAll();
