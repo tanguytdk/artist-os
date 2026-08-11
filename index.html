@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>ARTIST OS</title>
+<title>Tanguy DJE RoiStar</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -197,12 +197,25 @@
     font-weight:600;font-size:13px;box-shadow:0 8px 20px -8px rgba(139,92,246,0.5);
   }
   .form-hint{font-size:11.5px;color:var(--muted);margin:0;line-height:1.5;}
+
+  /* ---- Task actions & project tag ---- */
+  .icon-btn{
+    all:unset;cursor:pointer;width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-size:12px;color:var(--muted);background:var(--surface-soft);flex:none;
+  }
+  .icon-btn:hover{background:var(--grad-soft);color:var(--violet);}
+  .icon-btn.danger:hover{background:rgba(239,90,90,0.12);color:var(--red);}
+  .task-project-tag{
+    display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--violet);
+    background:var(--grad-soft);border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:middle;
+  }
+  .proj-card-actions{display:flex;gap:6px;}
 </style>
 </head>
 <body>
 
   <div class="topbar">
-    <div class="brand"><span class="dot"></span>ARTIST OS</div>
+    <div class="brand"><span class="dot"></span>Tanguy DJE RoiStar</div>
     <div class="nav">
       <div class="tab active" id="navDashboard" onclick="switchView('dashboard')">Tableau de bord</div>
       <div class="tab" id="navCalendar" onclick="switchView('calendar')">Calendrier</div>
@@ -267,7 +280,7 @@
       <div class="hero">
         <div>
           <h1>Calendrier</h1>
-          <p id="calSub">Toutes les échéances qui te concernent, par mois.</p>
+          <p id="calSub">Toutes les échéances qui te concernent, tous projets confondus, par mois.</p>
         </div>
       </div>
 
@@ -460,6 +473,18 @@ function myTasks(){
   return inProject.filter(t => t.role === role);
 }
 
+function allMyTasks(){
+  // Same role filtering as myTasks(), but not scoped to a single project — used by the shared calendar.
+  const role = DATA.currentRole;
+  if(role === 'artiste' || role === 'manager') return DATA.tasks;
+  return DATA.tasks.filter(t => t.role === role);
+}
+
+function projectTitleOf(task){
+  const p = DATA.projects.find(pr => pr.id === task.projectId);
+  return p ? p.title : '';
+}
+
 function computeHealth(projectId){
   const pid = projectId || DATA.currentProjectId;
   const tasks = projectTasks(pid);
@@ -509,17 +534,20 @@ function taskRowHtml(task, opts={}){
   const blockReason = isBlocked
     ? `Bloqué par : ${eff.blockedBy.map(b=>`"${b.title}" (${roleLabel(b.role)})`).join(', ')}`
     : '';
+  const projectTag = opts.showProject ? `<span class="task-project-tag">${projectTitleOf(task)}</span>` : '';
   return `
     <div class="task ${isBlocked?'blocked':''}">
       <span class="task-dot ${dotClass}"></span>
       <div class="task-body">
-        <div class="task-title">${task.title}</div>
+        <div class="task-title">${task.title} ${projectTag}</div>
         <div class="task-sub">${roleLabel(task.role)} · ${fmtDue(task.due)}</div>
         ${blockReason ? `<div class="task-block-reason">${blockReason}</div>` : ''}
       </div>
       <select onchange="changeStatus('${task.id}', this.value)" ${isBlocked?'disabled title="Débloque d\'abord la tâche dont elle dépend"':''}>
         ${['à venir','en cours','en retard','terminé'].map(s=>`<option value="${s}" ${task.status===s?'selected':''}>${s}</option>`).join('')}
       </select>
+      <button class="icon-btn" title="Modifier" onclick="editTask('${task.id}')">✎</button>
+      <button class="icon-btn danger" title="Supprimer" onclick="deleteTask('${task.id}')">🗑</button>
     </div>`;
 }
 
@@ -605,7 +633,7 @@ window.shiftMonth = shiftMonth;
 
 function tasksByDate(){
   const map = {};
-  myTasks().forEach(t => {
+  allMyTasks().forEach(t => {
     (map[t.due] = map[t.due] || []).push(t);
   });
   return map;
@@ -660,7 +688,7 @@ function showDayTasks(dateStr){
   const list = document.getElementById('calDayTasks');
   const d = new Date(dateStr + 'T00:00:00');
   title.textContent = d.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'});
-  list.innerHTML = tasks.length ? tasks.map(t => taskRowHtml(t)).join('') : `<div class="empty">Aucune tâche ce jour-là pour ce rôle.</div>`;
+  list.innerHTML = tasks.length ? tasks.map(t => taskRowHtml(t, {showProject:true})).join('') : `<div class="empty">Aucune tâche ce jour-là pour ce rôle.</div>`;
   card.style.display = 'block';
 }
 window.showDayTasks = showDayTasks;
@@ -687,6 +715,77 @@ function changeStatus(taskId, newStatus){
 }
 window.changeStatus = changeStatus;
 
+function editTask(id){
+  const task = taskById(id);
+  if(!task) return;
+  const newTitle = prompt('Titre de la tâche :', task.title);
+  if(newTitle === null) return;
+  const newDue = prompt('Date d\'échéance (AAAA-MM-JJ) :', task.due);
+  if(newDue === null) return;
+  if(newTitle.trim()) task.title = newTitle.trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(newDue.trim())) task.due = newDue.trim();
+  else if(newDue.trim() !== task.due){
+    alert('Format de date invalide, la date n\'a pas été changée (utilise AAAA-MM-JJ).');
+  }
+  saveData(DATA);
+  renderAll();
+}
+window.editTask = editTask;
+
+function deleteTask(id){
+  const task = taskById(id);
+  if(!task) return;
+  const dependents = DATA.tasks.filter(t => (t.dependsOn||[]).includes(id));
+  const warn = dependents.length
+    ? `Attention : ${dependents.length} tâche(s) dépendent de "${task.title}" et perdront cette dépendance. `
+    : '';
+  if(!confirm(`${warn}Supprimer "${task.title}" ? Cette action est irréversible.`)) return;
+  DATA.tasks = DATA.tasks.filter(t => t.id !== id);
+  DATA.tasks.forEach(t => { t.dependsOn = (t.dependsOn||[]).filter(d => d !== id); });
+  saveData(DATA);
+  renderAll();
+}
+window.deleteTask = deleteTask;
+
+function editProject(id, evt){
+  if(evt) evt.stopPropagation();
+  const proj = DATA.projects.find(p => p.id === id);
+  if(!proj) return;
+  const newTitle = prompt('Titre du projet :', proj.title);
+  if(newTitle === null) return;
+  const newDate = prompt('Date de sortie (AAAA-MM-JJ) :', proj.releaseDate);
+  if(newDate === null) return;
+  if(newTitle.trim()) proj.title = newTitle.trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(newDate.trim())) proj.releaseDate = newDate.trim();
+  else if(newDate.trim() !== proj.releaseDate){
+    alert('Format de date invalide, la date n\'a pas été changée (utilise AAAA-MM-JJ).');
+  }
+  saveData(DATA);
+  renderProjectsList();
+  renderAll();
+}
+window.editProject = editProject;
+
+function deleteProject(id, evt){
+  if(evt) evt.stopPropagation();
+  const proj = DATA.projects.find(p => p.id === id);
+  if(!proj) return;
+  if(DATA.projects.length <= 1){
+    alert('Impossible de supprimer le dernier projet restant.');
+    return;
+  }
+  if(!confirm(`Supprimer le projet "${proj.title}" et toutes ses tâches ? Cette action est irréversible.`)) return;
+  DATA.projects = DATA.projects.filter(p => p.id !== id);
+  DATA.tasks = DATA.tasks.filter(t => t.projectId !== id);
+  if(DATA.currentProjectId === id){
+    DATA.currentProjectId = DATA.projects[0].id;
+  }
+  saveData(DATA);
+  renderProjectsList();
+  renderAll();
+}
+window.deleteProject = deleteProject;
+
 /* ============ PROJECTS ============ */
 const RELEASE_TEMPLATE = [
   {key:'arrangement', title:'Arrangement', role:'arrangeur', offset:-35, deps:[]},
@@ -702,13 +801,13 @@ const RELEASE_TEMPLATE = [
   {key:'selection', title:'Sélection & retouches photos', role:'photographe', offset:-14, deps:['shooting']},
   {key:'pochette', title:'Création pochette', role:'infographiste', offset:-12, deps:['selection']},
   {key:'affiches', title:'Affiches', role:'infographiste', offset:-9, deps:['pochette']},
-  {key:'visuels', title:'Visuels réseaux sociaux', role:'infographiste', offset:-8, deps:['pochette']},
+  {key:wisuels', title:'Visuels réseaux sociaux', role:'infographiste', offset:-8, deps:['pochette']},
 
   {key:'prepa_video', title:'Préparation vidéo', role:'videaste', offset:-19, deps:[]},
-  {key:'tournage', title:'Tournage clip', role:'videaste', offset:-13, deps:['prepa_video']},
+  {key:'Tournage', title:'Tournage clip', role:'videaste', offset:-13, deps:['prepa_video']},
   {key:'montage', title:'Montage clip', role:'videaste', offset:-7, deps:['tournage']},
   {key:'audio_final', title:'Intégration audio final', role:'videaste', offset:-6, deps:['montage','mixage']},
-  {key:'validation_video', title:'Validation version finale', role:'videaste', offset:-3, deps:['audio_final']},
+  {key:validation_video', title:'Validation version finale', role:'videaste', offset:-3, deps:['audio_final']},
 
   {key:'teaser', title:'Teaser', role:'cm', offset:-9, deps:['visuels']},
   {key:'extrait', title:'Extrait promotionnel', role:'cm', offset:-6, deps:['validation_video']},
@@ -754,7 +853,11 @@ function renderProjectsList(){
       <div class="proj-card ${isCurrent?'current':''}" onclick="setCurrentProject('${p.id}')">
         <div class="proj-card-top">
           <h3>${p.title}</h3>
-          <span class="proj-health">${healthIcon}</span>
+          <div class="proj-card-actions">
+            <span class="proj-health">${healthIcon}</span>
+            <button class="icon-btn" title="Modifier" onclick="editProject('${p.id}', event)">✎</button>
+            <button class="icon-btn danger" title="Supprimer" onclick="deleteProject('${p.id}', event)">🗑</button>
+          </div>
         </div>
         <div class="proj-meta">${p.type} · Sortie le ${new Date(p.releaseDate).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</div>
         <div class="progress-outer"><div class="progress-inner" style="width:${pct}%"></div></div>
