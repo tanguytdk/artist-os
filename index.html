@@ -7,6 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   :root{
     --bg:#F6F6FB;
@@ -210,6 +213,14 @@
     background:var(--grad-soft);border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:middle;
   }
   .proj-card-actions{display:flex;gap:6px;}
+
+  /* ---- Sync badge ---- */
+  .sync-badge{
+    display:inline-flex;align-items:center;gap:5px;font-size:10px;font-family:'IBM Plex Mono',monospace;
+    padding:3px 9px;border-radius:99px;border:1px solid var(--border);color:var(--muted);
+  }
+  .sync-badge.ok{color:var(--green);border-color:rgba(32,178,108,0.3);background:rgba(32,178,108,0.06);}
+  .sync-badge.err{color:var(--red);border-color:rgba(239,90,90,0.3);background:rgba(239,90,90,0.06);}
 </style>
 </head>
 <body>
@@ -222,9 +233,12 @@
       <div class="tab" id="navProjects" onclick="switchView('projects')">Projets</div>
       <div class="tab soon">Tâches</div>
     </div>
-    <div class="role-select">
-      <label class="mono">RÔLE</label>
-      <select id="roleSelect"></select>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="sync-badge" id="syncBadge">🔄 connexion…</span>
+      <div class="role-select">
+        <label class="mono">RÔLE</label>
+        <select id="roleSelect"></select>
+      </div>
     </div>
   </div>
 
@@ -234,7 +248,7 @@
       <div class="hero">
         <div>
           <h1 id="heroTitle">Bon retour</h1>
-          <p id="heroSub">Voici ce qui te concerne aujourd'hui.</p>
+          <p id="heroSub">Connexion à la base partagée…</p>
         </div>
         <span class="badge" id="dateBadge"></span>
       </div>
@@ -324,14 +338,29 @@
           <input type="date" id="npDate" required>
           <button type="submit" class="cta-inline">Générer le plan de sortie</button>
         </form>
-        <p class="form-hint">L'application crée automatiquement les tâches (arrangement, mixage, distribution, image, vidéo, promotion) avec des échéances calculées à rebours de la date de sortie, comme décrit dans le cahier des charges.</p>
+        <p class="form-hint">L'application crée automatiquement les tâches (arrangement, mixage, distribution, image, vidéo, promotion) avec des échéances calculées à rebours de la date de sortie.</p>
       </div>
     </div>
 
-    <div class="footnote">Données stockées localement dans ce navigateur — modules Tableau de bord + Rôles + Calendrier (V1, étape 2/11)</div>
+    <div class="footnote">Base de données partagée (Firebase) — modules Tableau de bord + Rôles + Calendrier + Projets (V1, étape 3/11)</div>
   </div>
 
 <script>
+/* ============ FIREBASE ============ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCH-RzCay9SgktIrF1dDyjFVaKmtz-Y1eg",
+  authDomain: "artist-os-66748.firebaseapp.com",
+  projectId: "artist-os-66748",
+  storageBucket: "artist-os-66748.firebasestorage.app",
+  messagingSenderId: "373944279125",
+  appId: "1:373944279125:web:a658be2fe89885a20e74dc",
+  measurementId: "G-RSVMZ7PVL3"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const DOC_REF = db.collection('artistos').doc('shared');
+
 /* ============ DATA MODEL ============ */
 const ROLES = [
   {id:'artiste', label:'Artiste', icon:'🎤'},
@@ -345,9 +374,9 @@ const ROLES = [
   {id:'manager', label:'Manager', icon:'📋'},
 ];
 
-const STORAGE_KEY = 'artistos_v1';
+const LOCAL_KEY = 'artistos_local_v1';
 
-function seedData(){
+function seedShared(){
   const today = new Date();
   const d = (offsetDays) => {
     const dt = new Date(today);
@@ -355,8 +384,6 @@ function seedData(){
     return dt.toISOString().slice(0,10);
   };
   return {
-    currentRole: 'artiste',
-    currentProjectId: 'destin',
     projects: [
       {id:'destin', title:'DESTIN', type:'Single', releaseDate:'2026-10-15'}
     ],
@@ -387,34 +414,77 @@ function seedData(){
   };
 }
 
-function migrate(data){
-  // Older versions of this app stored a single "project" object instead of "projects".
-  if(data.project && !data.projects){
-    data.projects = [{...data.project, id:'destin'}];
-    data.currentProjectId = 'destin';
-    (data.tasks||[]).forEach(t => { if(!t.projectId) t.projectId = 'destin'; });
-    delete data.project;
-  }
-  if(!data.currentProjectId && data.projects && data.projects.length){
-    data.currentProjectId = data.projects[0].id;
-  }
-  return data;
+function loadLocalPrefs(){
+  try{
+    const raw = localStorage.getItem(LOCAL_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return { currentRole: 'artiste', currentProjectId: null };
+}
+function saveLocalPrefs(){
+  localStorage.setItem(LOCAL_KEY, JSON.stringify({
+    currentRole: DATA.currentRole,
+    currentProjectId: DATA.currentProjectId
+  }));
 }
 
-function loadData(){
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if(raw){
-    try{ return migrate(JSON.parse(raw)); }catch(e){}
-  }
-  const seeded = seedData();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
-  return seeded;
-}
+let DATA = Object.assign({ projects: [], tasks: [], notifications: [] }, loadLocalPrefs());
+let dataReady = false;
+
 function saveData(data){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  saveLocalPrefs();
+  setSyncBadge('saving');
+  DOC_REF.set({
+    projects: data.projects,
+    tasks: data.tasks,
+    notifications: data.notifications
+  }).then(() => setSyncBadge('ok')).catch(err => {
+    console.error('Erreur de sauvegarde Firestore :', err);
+    setSyncBadge('err');
+  });
 }
 
-let DATA = loadData();
+function setSyncBadge(state){
+  const el = document.getElementById('syncBadge');
+  if(!el) return;
+  if(state === 'ok'){ el.textContent = '🟢 synchronisé'; el.className = 'sync-badge ok'; }
+  else if(state === 'saving'){ el.textContent = '🔄 sauvegarde…'; el.className = 'sync-badge'; }
+  else if(state === 'err'){ el.textContent = '🔴 erreur de sync'; el.className = 'sync-badge err'; }
+  else { el.textContent = '🔄 connexion…'; el.className = 'sync-badge'; }
+}
+
+function startSync(){
+  auth.onAuthStateChanged(user => {
+    if(!user){
+      auth.signInAnonymously().catch(err => {
+        console.error('Erreur de connexion Firebase Auth :', err);
+        setSyncBadge('err');
+      });
+      return;
+    }
+    DOC_REF.onSnapshot(snap => {
+      let shared;
+      if(snap.exists){
+        shared = snap.data();
+      } else {
+        shared = seedShared();
+        DOC_REF.set(shared);
+      }
+      DATA.projects = shared.projects || [];
+      DATA.tasks = shared.tasks || [];
+      DATA.notifications = shared.notifications || [];
+      if(!DATA.currentProjectId || !DATA.projects.some(p => p.id === DATA.currentProjectId)){
+        DATA.currentProjectId = DATA.projects[0] ? DATA.projects[0].id : null;
+      }
+      dataReady = true;
+      setSyncBadge('ok');
+      renderAll();
+    }, err => {
+      console.error('Erreur de synchronisation Firestore :', err);
+      setSyncBadge('err');
+    });
+  });
+}
 
 /* ============ HELPERS ============ */
 function taskById(id){ return DATA.tasks.find(t=>t.id===id); }
@@ -422,7 +492,6 @@ function currentProject(){ return DATA.projects.find(p => p.id === DATA.currentP
 function projectTasks(projectId){ return DATA.tasks.filter(t => t.projectId === projectId); }
 
 function effectiveStatus(task){
-  // A task is "bloqué" if it depends on a task that isn't "terminé", unless it's already done itself.
   if(task.status === 'terminé') return 'terminé';
   const blockedBy = (task.dependsOn||[]).map(taskById).filter(dep => dep && dep.status !== 'terminé');
   if(blockedBy.length){
@@ -461,7 +530,7 @@ function renderRoleSelect(){
   sel.innerHTML = ROLES.map(r => `<option value="${r.id}" ${r.id===DATA.currentRole?'selected':''}>${r.icon} ${r.label}</option>`).join('');
   sel.onchange = () => {
     DATA.currentRole = sel.value;
-    saveData(DATA);
+    saveLocalPrefs();
     renderAll();
   };
 }
@@ -469,12 +538,11 @@ function renderRoleSelect(){
 function myTasks(){
   const role = DATA.currentRole;
   const inProject = DATA.tasks.filter(t => t.projectId === DATA.currentProjectId);
-  if(role === 'artiste' || role === 'manager') return inProject; // vue globale
+  if(role === 'artiste' || role === 'manager') return inProject;
   return inProject.filter(t => t.role === role);
 }
 
 function allMyTasks(){
-  // Same role filtering as myTasks(), but not scoped to a single project — used by the shared calendar.
   const role = DATA.currentRole;
   if(role === 'artiste' || role === 'manager') return DATA.tasks;
   return DATA.tasks.filter(t => t.role === role);
@@ -515,6 +583,7 @@ function renderHero(){
 
 function renderProject(){
   const proj = currentProject();
+  if(!proj) return;
   document.getElementById('projectTitle').textContent = proj.title;
   document.getElementById('projectMeta').textContent = `${proj.type} · Sortie le ${new Date(proj.releaseDate).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}`;
   const pct = computeProgress();
@@ -530,7 +599,6 @@ function taskRowHtml(task, opts={}){
   const eff = effectiveStatus(task);
   const isBlocked = eff && eff.status === 'bloqué';
   const dotClass = statusDotClass(eff);
-  const statusLabel = isBlocked ? 'Bloqué' : eff;
   const blockReason = isBlocked
     ? `Bloqué par : ${eff.blockedBy.map(b=>`"${b.title}" (${roleLabel(b.role)})`).join(', ')}`
     : '';
@@ -594,6 +662,9 @@ function renderNotifications(){
 }
 
 function renderAll(){
+  if(!dataReady || !DATA.projects || !DATA.projects.length){
+    return;
+  }
   renderRoleSelect();
   renderHero();
   renderProject();
@@ -647,7 +718,7 @@ function renderCalendar(){
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
   const firstDay = new Date(year, month, 1);
-  const startOffset = (firstDay.getDay() + 6) % 7; // Monday-first
+  const startOffset = (firstDay.getDay() + 6) % 7;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const prevMonthDays = new Date(year, month, 0).getDate();
   const todayStr = new Date().toISOString().slice(0,10);
@@ -699,7 +770,6 @@ function changeStatus(taskId, newStatus){
   if(!task) return;
   const oldStatus = task.status;
   task.status = newStatus;
-  saveData(DATA);
 
   if(newStatus === 'terminé' && oldStatus !== 'terminé'){
     const dependents = DATA.tasks.filter(t => (t.dependsOn||[]).includes(taskId));
@@ -708,9 +778,9 @@ function changeStatus(taskId, newStatus){
         time: 'À l\'instant',
         text: `✅ ${task.title} terminé. Prochaine étape : ${dependents.map(d=>d.title).join(', ')}.`
       });
-      saveData(DATA);
     }
   }
+  saveData(DATA);
   renderAll();
 }
 window.changeStatus = changeStatus;
@@ -801,13 +871,13 @@ const RELEASE_TEMPLATE = [
   {key:'selection', title:'Sélection & retouches photos', role:'photographe', offset:-14, deps:['shooting']},
   {key:'pochette', title:'Création pochette', role:'infographiste', offset:-12, deps:['selection']},
   {key:'affiches', title:'Affiches', role:'infographiste', offset:-9, deps:['pochette']},
-  {key:wisuels', title:'Visuels réseaux sociaux', role:'infographiste', offset:-8, deps:['pochette']},
+  {key:'visuels', title:'Visuels réseaux sociaux', role:'infographiste', offset:-8, deps:['pochette']},
 
   {key:'prepa_video', title:'Préparation vidéo', role:'videaste', offset:-19, deps:[]},
-  {key:'Tournage', title:'Tournage clip', role:'videaste', offset:-13, deps:['prepa_video']},
+  {key:'tournage', title:'Tournage clip', role:'videaste', offset:-13, deps:['prepa_video']},
   {key:'montage', title:'Montage clip', role:'videaste', offset:-7, deps:['tournage']},
   {key:'audio_final', title:'Intégration audio final', role:'videaste', offset:-6, deps:['montage','mixage']},
-  {key:validation_video', title:'Validation version finale', role:'videaste', offset:-3, deps:['audio_final']},
+  {key:'validation_video', title:'Validation version finale', role:'videaste', offset:-3, deps:['audio_final']},
 
   {key:'teaser', title:'Teaser', role:'cm', offset:-9, deps:['visuels']},
   {key:'extrait', title:'Extrait promotionnel', role:'cm', offset:-6, deps:['validation_video']},
@@ -868,7 +938,7 @@ function renderProjectsList(){
 
 function setCurrentProject(id){
   DATA.currentProjectId = id;
-  saveData(DATA);
+  saveLocalPrefs();
   switchView('dashboard');
   renderAll();
 }
@@ -904,7 +974,7 @@ document.getElementById('newProjectForm').addEventListener('submit', (e) => {
 });
 
 /* ============ INIT ============ */
-renderAll();
+startSync();
 </script>
 </body>
 </html>
