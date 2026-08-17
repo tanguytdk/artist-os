@@ -116,11 +116,14 @@ function startSync(){
     }
     DOC_REF.onSnapshot(snap => {
       let shared;
+      const banner = document.getElementById('missingDocBanner');
       if(snap.exists){
         shared = snap.data();
+        if(banner) banner.style.display = 'none';
       } else {
+        console.warn('Document Firestore introuvable — affichage des données de démonstration SANS écriture automatique.');
         shared = seedShared();
-        DOC_REF.set(shared);
+        if(banner) banner.style.display = 'flex';
       }
       DATA.projects = shared.projects || [];
       DATA.tasks = shared.tasks || [];
@@ -138,10 +141,79 @@ function startSync(){
   });
 }
 
+function initializeSharedDoc(){
+  if(!confirm('Créer une nouvelle base avec les données de démonstration ? À faire seulement si tu es sûr qu\'il n\'y a pas de vraies données ailleurs.')) return;
+  DOC_REF.set(seedShared()).then(() => {
+    const banner = document.getElementById('missingDocBanner');
+    if(banner) banner.style.display = 'none';
+  }).catch(err => {
+    console.error('Erreur d\'initialisation Firestore :', err);
+    alert('Erreur lors de la création de la base. Regarde la console (F12) pour le détail.');
+  });
+}
+window.initializeSharedDoc = initializeSharedDoc;
+
+function exportData(){
+  const backup = {
+    exportedAt: new Date().toISOString(),
+    projects: DATA.projects,
+    tasks: DATA.tasks,
+    notifications: DATA.notifications
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `artistos-sauvegarde-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+window.exportData = exportData;
+
+function importData(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    let parsed;
+    try{
+      parsed = JSON.parse(e.target.result);
+    }catch(err){
+      alert('Fichier invalide : ce n\'est pas un JSON lisible.');
+      return;
+    }
+    if(!parsed.projects || !parsed.tasks){
+      alert('Fichier invalide : structure inattendue (projects/tasks manquants).');
+      return;
+    }
+    if(!confirm(`Remplacer TOUTES les données actuelles par cette sauvegarde (${parsed.projects.length} projet(s), ${parsed.tasks.length} tâche(s)) ? Cette action est irréversible.`)) return;
+    setSyncBadge('saving');
+    DOC_REF.set({
+      projects: parsed.projects,
+      tasks: parsed.tasks,
+      notifications: parsed.notifications || []
+    }).then(() => setSyncBadge('ok')).catch(err => {
+      console.error('Erreur de restauration Firestore :', err);
+      setSyncBadge('err');
+      alert('Erreur lors de la restauration. Regarde la console (F12) pour le détail.');
+    });
+  };
+  reader.readAsText(file);
+  document.getElementById('importFile').value = '';
+}
+window.importData = importData;
+
 /* ============ HELPERS ============ */
 function taskById(id){ return DATA.tasks.find(t=>t.id===id); }
 function currentProject(){ return DATA.projects.find(p => p.id === DATA.currentProjectId) || DATA.projects[0]; }
 function projectTasks(projectId){ return DATA.tasks.filter(t => t.projectId === projectId); }
+
+function daysUntil(dateStr){
+  const now = new Date(); now.setHours(0,0,0,0);
+  const due = new Date(dateStr);
+  return Math.round((due - now) / 86400000);
+}
 
 function effectiveStatus(task){
   if(task.status === 'terminé') return 'terminé';
@@ -149,13 +221,10 @@ function effectiveStatus(task){
   if(blockedBy.length){
     return {status:'bloqué', blockedBy};
   }
+  if(daysUntil(task.due) < 0){
+    return 'en retard';
+  }
   return task.status;
-}
-
-function daysUntil(dateStr){
-  const now = new Date(); now.setHours(0,0,0,0);
-  const due = new Date(dateStr);
-  return Math.round((due - now) / 86400000);
 }
 
 function fmtDue(dateStr){
