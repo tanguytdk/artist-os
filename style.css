@@ -184,6 +184,7 @@ h1,h2,h3,.brand{font-family:'Sora',sans-serif;}
 }
 .icon-btn:hover{background:var(--grad-soft);color:var(--violet);}
 .icon-btn.danger:hover{background:rgba(239,90,90,0.12);color:var(--red);}
+.icon-btn.wide{width:auto;padding:6px 14px;font-weight:600;}
 .task-project-tag{
   display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;color:var(--violet);
   background:var(--grad-soft);border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:middle;
