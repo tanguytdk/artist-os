@@ -588,6 +588,30 @@ function editProject(id, evt){
 }
 window.editProject = editProject;
 
+function resyncProjectTasks(id, evt){
+  if(evt) evt.stopPropagation();
+  const proj = DATA.projects.find(p => p.id === id);
+  if(!proj) return;
+  if(!confirm(`Recalculer toutes les dates des tâches générées automatiquement pour "${proj.title}", à partir de sa date de sortie actuelle (${proj.releaseDate}) ? Les tâches ajoutées manuellement ne sont pas concernées.`)) return;
+  let count = 0;
+  DATA.tasks.filter(t => t.projectId === id).forEach(t => {
+    const prefix = id + '_';
+    if(t.id.startsWith(prefix)){
+      const key = t.id.slice(prefix.length);
+      const template = RELEASE_TEMPLATE.find(item => item.key === key);
+      if(template){
+        t.due = addDaysTo(proj.releaseDate, template.offset);
+        count++;
+      }
+    }
+  });
+  saveData(DATA);
+  renderProjectsList();
+  renderAll();
+  alert(`${count} tâche(s) recalculée(s) avec succès.`);
+}
+window.resyncProjectTasks = resyncProjectTasks;
+
 function deleteProject(id, evt){
   if(evt) evt.stopPropagation();
   const proj = DATA.projects.find(p => p.id === id);
@@ -678,6 +702,7 @@ function renderProjectsList(){
           <h3>${p.title}</h3>
           <div class="proj-card-actions">
             <span class="proj-health">${healthIcon}</span>
+            <button class="icon-btn" title="Resynchroniser les tâches avec la date de sortie" onclick="resyncProjectTasks('${p.id}', event)">🔄</button>
             <button class="icon-btn" title="Modifier" onclick="editProject('${p.id}', event)">✎</button>
             <button class="icon-btn danger" title="Supprimer" onclick="deleteProject('${p.id}', event)">🗑</button>
           </div>
