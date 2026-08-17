@@ -338,6 +338,7 @@ function renderAll(){
 /* ============ CALENDAR ============ */
 let currentMonth = new Date();
 currentMonth.setDate(1);
+let selectedCalDate = null;
 
 function switchView(view){
   document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
@@ -407,9 +408,14 @@ function renderCalendar(){
     const hasTasks = tasks.length ? 'has-tasks' : '';
     return `<div class="cal-day ${isToday?'today':''} ${hasTasks}" onclick="showDayTasks('${c.dateStr}')"><div class="num">${c.day}</div>${pills}${more}</div>`;
   }).join('');
+
+  if(selectedCalDate){
+    showDayTasks(selectedCalDate);
+  }
 }
 
 function showDayTasks(dateStr){
+  selectedCalDate = dateStr;
   const map = tasksByDate();
   const tasks = map[dateStr] || [];
   const card = document.getElementById('calDayCard');
@@ -572,7 +578,8 @@ function generateReleasePlan(project){
 
 function renderProjectsList(){
   const el = document.getElementById('projectsList');
-  el.innerHTML = DATA.projects.map(p => {
+  const sortedProjects = DATA.projects.slice().sort((a, b) => new Date(a.releaseDate) - new Date(b.releaseDate));
+  el.innerHTML = sortedProjects.map(p => {
     const pct = computeProgress(p.id);
     const health = computeHealth(p.id);
     const healthIcon = health === 'green' ? '🟢' : health === 'orange' ? '🟠' : '🔴';
