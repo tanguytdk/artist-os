@@ -559,10 +559,29 @@ function editProject(id, evt){
   const newDate = prompt('Date de sortie (AAAA-MM-JJ) :', proj.releaseDate);
   if(newDate === null) return;
   if(newTitle.trim()) proj.title = newTitle.trim();
-  if(/^\d{4}-\d{2}-\d{2}$/.test(newDate.trim())) proj.releaseDate = newDate.trim();
-  else if(newDate.trim() !== proj.releaseDate){
+
+  const trimmedDate = newDate.trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)){
+    if(trimmedDate !== proj.releaseDate){
+      const oldDate = proj.releaseDate;
+      const oldD = new Date(oldDate + 'T00:00:00');
+      const newD = new Date(trimmedDate + 'T00:00:00');
+      const delta = Math.round((newD - oldD) / 86400000);
+      proj.releaseDate = trimmedDate;
+      if(delta !== 0){
+        DATA.tasks.filter(t => t.projectId === id).forEach(t => {
+          t.due = addDaysTo(t.due, delta);
+        });
+        DATA.notifications.unshift({
+          time: 'À l\'instant',
+          text: `📅 Date de sortie de "${proj.title}" modifiée. Toutes ses tâches ont été décalées de ${delta > 0 ? '+' : ''}${delta} jour(s).`
+        });
+      }
+    }
+  } else if(trimmedDate !== proj.releaseDate){
     alert('Format de date invalide, la date n\'a pas été changée (utilise AAAA-MM-JJ).');
   }
+
   saveData(DATA);
   renderProjectsList();
   renderAll();
