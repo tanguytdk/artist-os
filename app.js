@@ -12,7 +12,6 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 const DOC_REF = db.collection('artistos').doc('shared');
-
 /* ============ DATA MODEL ============ */
 const ROLES = [
   {id:'artiste', label:'Artiste', icon:'🎤'},
@@ -25,9 +24,7 @@ const ROLES = [
   {id:'cm', label:'Community Manager', icon:'📱'},
   {id:'manager', label:'Manager', icon:'📋'},
 ];
-
 const LOCAL_KEY = 'artistos_local_v1';
-
 function seedShared(){
   const today = new Date();
   const d = (offsetDays) => {
@@ -65,7 +62,6 @@ function seedShared(){
     ]
   };
 }
-
 function loadLocalPrefs(){
   try{
     const raw = localStorage.getItem(LOCAL_KEY);
@@ -79,10 +75,8 @@ function saveLocalPrefs(){
     currentProjectId: DATA.currentProjectId
   }));
 }
-
 let DATA = Object.assign({ projects: [], tasks: [], notifications: [] }, loadLocalPrefs());
 let dataReady = false;
-
 function saveData(data){
   saveLocalPrefs();
   setSyncBadge('saving');
@@ -95,7 +89,6 @@ function saveData(data){
     setSyncBadge('err');
   });
 }
-
 function setSyncBadge(state){
   const el = document.getElementById('syncBadge');
   if(!el) return;
@@ -104,7 +97,6 @@ function setSyncBadge(state){
   else if(state === 'err'){ el.textContent = '🔴 erreur de sync'; el.className = 'sync-badge err'; }
   else { el.textContent = '🔄 connexion…'; el.className = 'sync-badge'; }
 }
-
 function startSync(){
   auth.onAuthStateChanged(user => {
     if(!user){
@@ -140,7 +132,6 @@ function startSync(){
     });
   });
 }
-
 function initializeSharedDoc(){
   if(!confirm('Créer une nouvelle base avec les données de démonstration ? À faire seulement si tu es sûr qu\'il n\'y a pas de vraies données ailleurs.')) return;
   DOC_REF.set(seedShared()).then(() => {
@@ -152,7 +143,6 @@ function initializeSharedDoc(){
   });
 }
 window.initializeSharedDoc = initializeSharedDoc;
-
 function exportData(){
   const backup = {
     exportedAt: new Date().toISOString(),
@@ -171,7 +161,6 @@ function exportData(){
   URL.revokeObjectURL(url);
 }
 window.exportData = exportData;
-
 function importData(file){
   if(!file) return;
   const reader = new FileReader();
@@ -203,18 +192,19 @@ function importData(file){
   document.getElementById('importFile').value = '';
 }
 window.importData = importData;
-
 /* ============ HELPERS ============ */
 function taskById(id){ return DATA.tasks.find(t=>t.id===id); }
 function currentProject(){ return DATA.projects.find(p => p.id === DATA.currentProjectId) || DATA.projects[0]; }
 function projectTasks(projectId){ return DATA.tasks.filter(t => t.projectId === projectId); }
-
+/* --- CORRIGÉ : calcule le nombre de jours en arithmétique UTC pure,
+   pour ne plus dépendre du fuseau horaire du visiteur --- */
 function daysUntil(dateStr){
-  const now = new Date(); now.setHours(0,0,0,0);
-  const due = new Date(dateStr);
-  return Math.round((due - now) / 86400000);
+  const now = new Date();
+  const todayUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dueUTC = Date.UTC(y, m - 1, d);
+  return Math.round((dueUTC - todayUTC) / 86400000);
 }
-
 function effectiveStatus(task){
   if(task.status === 'terminé') return 'terminé';
   const blockedBy = (task.dependsOn||[]).map(taskById).filter(dep => dep && dep.status !== 'terminé');
@@ -226,7 +216,6 @@ function effectiveStatus(task){
   }
   return task.status;
 }
-
 function fmtDue(dateStr){
   const n = daysUntil(dateStr);
   if(n < 0) return `EN RETARD DE ${Math.abs(n)} J`;
@@ -234,9 +223,7 @@ function fmtDue(dateStr){
   if(n === 1) return `DEMAIN`;
   return `DANS ${n} J`;
 }
-
 const roleLabel = (id) => (ROLES.find(r=>r.id===id)||{}).label || id;
-
 /* ============ RENDER ============ */
 function statusDotClass(effStatus){
   if(effStatus === 'terminé') return 'done';
@@ -245,7 +232,6 @@ function statusDotClass(effStatus){
   if(effStatus === 'en cours') return 'progress';
   return 'upcoming';
 }
-
 function renderRoleSelect(){
   const sel = document.getElementById('roleSelect');
   sel.innerHTML = ROLES.map(r => `<option value="${r.id}" ${r.id===DATA.currentRole?'selected':''}>${r.icon} ${r.label}</option>`).join('');
@@ -255,25 +241,21 @@ function renderRoleSelect(){
     renderAll();
   };
 }
-
 function myTasks(){
   const role = DATA.currentRole;
   const inProject = DATA.tasks.filter(t => t.projectId === DATA.currentProjectId);
   if(role === 'artiste' || role === 'manager') return inProject;
   return inProject.filter(t => t.role === role);
 }
-
 function allMyTasks(){
   const role = DATA.currentRole;
   if(role === 'artiste' || role === 'manager') return DATA.tasks;
   return DATA.tasks.filter(t => t.role === role);
 }
-
 function projectTitleOf(task){
   const p = DATA.projects.find(pr => pr.id === task.projectId);
   return p ? p.title : '';
 }
-
 function computeHealth(projectId){
   const pid = projectId || DATA.currentProjectId;
   const tasks = projectTasks(pid);
@@ -283,7 +265,6 @@ function computeHealth(projectId){
   if(blocked.length > 1) return 'orange';
   return 'green';
 }
-
 function computeProgress(projectId){
   const pid = projectId || DATA.currentProjectId;
   const tasks = projectTasks(pid);
@@ -291,7 +272,6 @@ function computeProgress(projectId){
   const done = tasks.filter(t => t.status === 'terminé').length;
   return Math.round((done/tasks.length)*100);
 }
-
 function renderHero(){
   const role = ROLES.find(r=>r.id===DATA.currentRole);
   document.getElementById('heroTitle').textContent = `Bon retour, ${role.label}`;
@@ -301,12 +281,13 @@ function renderHero(){
     : `Aucune tâche active pour toi en ce moment.`;
   document.getElementById('dateBadge').textContent = new Date().toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'});
 }
-
 function renderProject(){
   const proj = currentProject();
   if(!proj) return;
   document.getElementById('projectTitle').textContent = proj.title;
-  document.getElementById('projectMeta').textContent = `${proj.type} · Sortie le ${new Date(proj.releaseDate).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}`;
+  /* --- CORRIGÉ : on ajoute T00:00:00 pour que la date soit interprétée
+     en heure locale, comme elle sera affichée (plus de décalage) --- */
+  document.getElementById('projectMeta').textContent = `${proj.type} · Sortie le ${new Date(proj.releaseDate + 'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}`;
   const pct = computeProgress();
   document.getElementById('progressBar').style.width = pct + '%';
   document.getElementById('progressLabel').textContent = pct + '% des tâches terminées';
@@ -315,7 +296,6 @@ function renderProject(){
   dot.className = 'health ' + health;
   dot.textContent = health === 'green' ? '🟢' : health === 'orange' ? '🟠' : '🔴';
 }
-
 function taskRowHtml(task, opts={}){
   const eff = effectiveStatus(task);
   const isBlocked = eff && eff.status === 'bloqué';
@@ -339,7 +319,6 @@ function taskRowHtml(task, opts={}){
       <button class="icon-btn danger" title="Supprimer" onclick="deleteTask('${task.id}')">🗑</button>
     </div>`;
 }
-
 function renderTodayList(){
   const list = myTasks().filter(t => {
     const eff = effectiveStatus(t);
@@ -349,13 +328,11 @@ function renderTodayList(){
   const el = document.getElementById('todayList');
   el.innerHTML = list.length ? list.map(t=>taskRowHtml(t)).join('') : `<div class="empty">Rien d'urgent pour l'instant 👌</div>`;
 }
-
 function renderAllTasks(){
   const list = myTasks().slice().sort((a,b)=> daysUntil(a.due) - daysUntil(b.due));
   const el = document.getElementById('allTasksList');
   el.innerHTML = list.length ? list.map(t=>taskRowHtml(t)).join('') : `<div class="empty">Aucune tâche pour ce rôle pour le moment.</div>`;
 }
-
 function renderAlerts(){
   const relevant = myTasks();
   const late = relevant.filter(t => effectiveStatus(t) === 'en retard');
@@ -374,14 +351,12 @@ function renderAlerts(){
   }
   el.innerHTML = html;
 }
-
 function renderNotifications(){
   const el = document.getElementById('notifList');
   el.innerHTML = DATA.notifications.map(n => `
     <div class="notif"><div class="time mono">${n.time}</div><div class="txt">${n.text}</div></div>
   `).join('');
 }
-
 function renderAll(){
   if(!dataReady || !DATA.projects || !DATA.projects.length){
     return;
@@ -403,12 +378,10 @@ function renderAll(){
     renderTasksView();
   }
 }
-
 /* ============ CALENDAR ============ */
 let currentMonth = new Date();
 currentMonth.setDate(1);
 let selectedCalDate = null;
-
 function switchView(view){
   document.getElementById('navDashboard').classList.toggle('active', view === 'dashboard');
   document.getElementById('navCalendar').classList.toggle('active', view === 'calendar');
@@ -423,13 +396,11 @@ function switchView(view){
   if(view === 'tasks') renderTasksView();
 }
 window.switchView = switchView;
-
 function shiftMonth(delta){
   currentMonth.setMonth(currentMonth.getMonth() + delta);
   renderCalendar();
 }
 window.shiftMonth = shiftMonth;
-
 function tasksByDate(){
   const map = {};
   allMyTasks().forEach(t => {
@@ -437,11 +408,9 @@ function tasksByDate(){
   });
   return map;
 }
-
 function renderCalendar(){
   const label = currentMonth.toLocaleDateString('fr-FR', {month:'long', year:'numeric'});
   document.getElementById('calMonthLabel').textContent = label;
-
   const map = tasksByDate();
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
@@ -450,7 +419,6 @@ function renderCalendar(){
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const prevMonthDays = new Date(year, month, 0).getDate();
   const todayStr = new Date().toISOString().slice(0,10);
-
   let cells = [];
   for(let i = startOffset - 1; i >= 0; i--){
     cells.push({day: prevMonthDays - i, outside: true, dateStr: null});
@@ -462,7 +430,6 @@ function renderCalendar(){
   while(cells.length % 7 !== 0){
     cells.push({day: '', outside: true, dateStr: null});
   }
-
   const el = document.getElementById('calGrid');
   el.innerHTML = cells.map(c => {
     if(c.outside) return `<div class="cal-day outside"><div class="num">${c.day}</div></div>`;
@@ -477,12 +444,10 @@ function renderCalendar(){
     const hasTasks = tasks.length ? 'has-tasks' : '';
     return `<div class="cal-day ${isToday?'today':''} ${hasTasks}" onclick="showDayTasks('${c.dateStr}')"><div class="num">${c.day}</div>${pills}${more}</div>`;
   }).join('');
-
   if(selectedCalDate){
     showDayTasks(selectedCalDate);
   }
 }
-
 function showDayTasks(dateStr){
   selectedCalDate = dateStr;
   const map = tasksByDate();
@@ -496,14 +461,12 @@ function showDayTasks(dateStr){
   card.style.display = 'block';
 }
 window.showDayTasks = showDayTasks;
-
 /* ============ INTERACTIONS ============ */
 function changeStatus(taskId, newStatus){
   const task = taskById(taskId);
   if(!task) return;
   const oldStatus = task.status;
   task.status = newStatus;
-
   if(newStatus === 'terminé' && oldStatus !== 'terminé'){
     const dependents = DATA.tasks.filter(t => (t.dependsOn||[]).includes(taskId));
     if(dependents.length){
@@ -517,7 +480,6 @@ function changeStatus(taskId, newStatus){
   renderAll();
 }
 window.changeStatus = changeStatus;
-
 function editTask(id){
   const task = taskById(id);
   if(!task) return;
@@ -534,7 +496,6 @@ function editTask(id){
   renderAll();
 }
 window.editTask = editTask;
-
 function deleteTask(id){
   const task = taskById(id);
   if(!task) return;
@@ -549,7 +510,6 @@ function deleteTask(id){
   renderAll();
 }
 window.deleteTask = deleteTask;
-
 function editProject(id, evt){
   if(evt) evt.stopPropagation();
   const proj = DATA.projects.find(p => p.id === id);
@@ -559,7 +519,6 @@ function editProject(id, evt){
   const newDate = prompt('Date de sortie (AAAA-MM-JJ) :', proj.releaseDate);
   if(newDate === null) return;
   if(newTitle.trim()) proj.title = newTitle.trim();
-
   const trimmedDate = newDate.trim();
   if(/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)){
     if(trimmedDate !== proj.releaseDate){
@@ -581,13 +540,11 @@ function editProject(id, evt){
   } else if(trimmedDate !== proj.releaseDate){
     alert('Format de date invalide, la date n\'a pas été changée (utilise AAAA-MM-JJ).');
   }
-
   saveData(DATA);
   renderProjectsList();
   renderAll();
 }
 window.editProject = editProject;
-
 function resyncProjectTasks(id, evt){
   if(evt) evt.stopPropagation();
   const proj = DATA.projects.find(p => p.id === id);
@@ -611,7 +568,6 @@ function resyncProjectTasks(id, evt){
   alert(`${count} tâche(s) recalculée(s) avec succès.`);
 }
 window.resyncProjectTasks = resyncProjectTasks;
-
 function deleteProject(id, evt){
   if(evt) evt.stopPropagation();
   const proj = DATA.projects.find(p => p.id === id);
@@ -631,7 +587,6 @@ function deleteProject(id, evt){
   renderAll();
 }
 window.deleteProject = deleteProject;
-
 /* ============ PROJECTS ============ */
 const RELEASE_TEMPLATE = [
   {key:'arrangement', title:'Arrangement', role:'arrangeur', offset:-35, deps:[]},
@@ -642,37 +597,37 @@ const RELEASE_TEMPLATE = [
   {key:'transmission', title:'Transmission au distributeur', role:'producteur', offset:-20, deps:['prepa_master']},
   {key:'pitching', title:'Pitching plateformes', role:'producteur', offset:-17, deps:['transmission']},
   {key:'verification', title:'Vérification métadonnées', role:'producteur', offset:-9, deps:['pitching']},
-
   {key:'shooting', title:'Shooting pochette', role:'photographe', offset:-18, deps:[]},
   {key:'selection', title:'Sélection & retouches photos', role:'photographe', offset:-14, deps:['shooting']},
   {key:'pochette', title:'Création pochette', role:'infographiste', offset:-12, deps:['selection']},
   {key:'affiches', title:'Affiches', role:'infographiste', offset:-9, deps:['pochette']},
   {key:'visuels', title:'Visuels réseaux sociaux', role:'infographiste', offset:-8, deps:['pochette']},
-
   {key:'prepa_video', title:'Préparation vidéo', role:'videaste', offset:-19, deps:[]},
   {key:'tournage', title:'Tournage clip', role:'videaste', offset:-13, deps:['prepa_video']},
   {key:'montage', title:'Montage clip', role:'videaste', offset:-7, deps:['tournage']},
   {key:'audio_final', title:'Intégration audio final', role:'videaste', offset:-6, deps:['montage','mixage']},
   {key:'validation_video', title:'Validation version finale', role:'videaste', offset:-3, deps:['audio_final']},
-
   {key:'teaser', title:'Teaser', role:'cm', offset:-9, deps:['visuels']},
   {key:'extrait', title:'Extrait promotionnel', role:'cm', offset:-6, deps:['validation_video']},
   {key:'compte_a_rebours', title:'Compte à rebours', role:'cm', offset:-1, deps:['affiches']},
   {key:'communication', title:'Communication de sortie', role:'cm', offset:0, deps:['verification','compte_a_rebours']},
 ];
-
+/* --- CORRIGÉ : tout le calcul se fait en UTC pur (Date.UTC / getUTCDate / setUTCDate),
+   donc plus aucune dépendance au fuseau horaire du visiteur --- */
 function addDaysTo(dateStr, n){
-  const dt = new Date(dateStr + 'T00:00:00');
-  dt.setDate(dt.getDate() + n);
-  return dt.toISOString().slice(0,10);
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + n);
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
 }
-
 function slugify(str){
   return str.toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'') || 'projet';
 }
-
 function generateReleasePlan(project){
   const idPrefix = project.id;
   RELEASE_TEMPLATE.forEach(item => {
@@ -687,7 +642,6 @@ function generateReleasePlan(project){
     });
   });
 }
-
 function renderProjectsList(){
   const el = document.getElementById('projectsList');
   const sortedProjects = DATA.projects.slice().sort((a, b) => new Date(a.releaseDate) - new Date(b.releaseDate));
@@ -707,13 +661,12 @@ function renderProjectsList(){
             <button class="icon-btn danger" title="Supprimer" onclick="deleteProject('${p.id}', event)">🗑</button>
           </div>
         </div>
-        <div class="proj-meta">${p.type} · Sortie le ${new Date(p.releaseDate).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</div>
+        <div class="proj-meta">${p.type} · Sortie le ${new Date(p.releaseDate + 'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</div>
         <div class="progress-outer"><div class="progress-inner" style="width:${pct}%"></div></div>
         <div class="progress-label">${pct}% terminé</div>
       </div>`;
   }).join('');
 }
-
 function setCurrentProject(id){
   DATA.currentProjectId = id;
   saveLocalPrefs();
@@ -721,36 +674,29 @@ function setCurrentProject(id){
   renderAll();
 }
 window.setCurrentProject = setCurrentProject;
-
 document.getElementById('newProjectForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const title = document.getElementById('npTitle').value.trim();
   const type = document.getElementById('npType').value;
   const releaseDate = document.getElementById('npDate').value;
   if(!title || !releaseDate) return;
-
   let id = slugify(title);
   if(DATA.projects.some(p => p.id === id)){
     id = id + '_' + Math.random().toString(36).slice(2,6);
   }
-
   const project = {id, title, type, releaseDate};
   DATA.projects.push(project);
   generateReleasePlan(project);
-
   DATA.notifications.unshift({
     time: 'À l\'instant',
     text: `📅 Nouvelle sortie créée : ${title}. Le plan de production a été généré automatiquement (${RELEASE_TEMPLATE.length} tâches).`
   });
-
   DATA.currentProjectId = id;
   saveData(DATA);
-
   e.target.reset();
   switchView('dashboard');
   renderAll();
 });
-
 /* ============ TASKS VIEW ============ */
 function renderTasksView(){
   const proj = currentProject();
@@ -770,7 +716,6 @@ function renderTasksView(){
   const el = document.getElementById('tasksFullList');
   el.innerHTML = list.length ? list.map(t => taskRowHtml(t)).join('') : `<div class="empty">Aucune tâche pour ce projet pour le moment.</div>`;
 }
-
 document.getElementById('newTaskForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const proj = currentProject();
@@ -779,7 +724,6 @@ document.getElementById('newTaskForm').addEventListener('submit', (e) => {
   const role = document.getElementById('ntRole').value;
   const due = document.getElementById('ntDue').value;
   if(!title || !due) return;
-
   const id = `${proj.id}_${slugify(title)}_${Math.random().toString(36).slice(2,6)}`;
   DATA.tasks.push({
     id, projectId: proj.id, title, role, status: 'à venir', due, dependsOn: []
@@ -792,6 +736,5 @@ document.getElementById('newTaskForm').addEventListener('submit', (e) => {
   e.target.reset();
   renderAll();
 });
-
 /* ============ INIT ============ */
 startSync();
