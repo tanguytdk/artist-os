@@ -97,7 +97,7 @@ function setSyncBadge(state){
   else if(state === 'err'){ el.textContent = '🔴 erreur de sync'; el.className = 'sync-badge err'; }
   else { el.textContent = '🔄 connexion…'; el.className = 'sync-badge'; }
 }
-/* --- NOUVEAU : gestion de l'écran de connexion --- */
+/* ============ CONNEXION ============ */
 function showLoginScreen(){
   const login = document.getElementById('loginScreen');
   const appRoot = document.getElementById('appRoot');
@@ -134,16 +134,41 @@ function logout(){
   auth.signOut();
 }
 window.logout = logout;
+/* --- NOUVEAU : déconnexion automatique après 5 minutes d'inactivité --- */
+const INACTIVITY_LIMIT_MS = 5 * 60 * 1000;
+let inactivityTimer = null;
+let loggedOutForInactivity = false;
+function resetInactivityTimer(){
+  if(!auth.currentUser) return;
+  if(inactivityTimer) clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(() => {
+    loggedOutForInactivity = true;
+    auth.signOut();
+  }, INACTIVITY_LIMIT_MS);
+}
+function clearInactivityTimer(){
+  if(inactivityTimer){ clearTimeout(inactivityTimer); inactivityTimer = null; }
+}
+['mousemove','mousedown','keydown','scroll','touchstart','click'].forEach(evt => {
+  document.addEventListener(evt, resetInactivityTimer, {passive:true});
+});
 function startSync(){
   const form = document.getElementById('loginForm');
   if(form) form.addEventListener('submit', handleLogin);
   auth.onAuthStateChanged(user => {
     if(!user){
       dataReady = false;
+      clearInactivityTimer();
       showLoginScreen();
+      if(loggedOutForInactivity){
+        const errEl = document.getElementById('loginError');
+        if(errEl) errEl.textContent = 'Tu as été déconnecté après 5 minutes d\'inactivité.';
+        loggedOutForInactivity = false;
+      }
       return;
     }
     hideLoginScreen();
+    resetInactivityTimer();
     DOC_REF.onSnapshot(snap => {
       let shared;
       const banner = document.getElementById('missingDocBanner');
