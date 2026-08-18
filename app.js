@@ -984,129 +984,264 @@ function downloadBookingPDF(){
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const p = Object.assign(defaultArtistProfile(), DATA.artistProfile || {});
+
+  /* ---------- Palette (identique à celle du site) ---------- */
   const violet = [139,92,246];
+  const violetDark = [104,58,214];
   const blue = [91,157,249];
   const dark = [33,30,48];
   const muted = [117,113,140];
+  const surfaceSoft = [241,240,250];
+  const border = [222,214,247];
+  const white = [255,255,255];
+  const green = [32,178,108];
+  const orange = [245,165,36];
+  const red = [239,90,90];
 
-  doc.setFillColor(...violet);
-  doc.rect(0, 0, pageWidth, 42, 'F');
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(22);
-  doc.text(p.name || 'Programme artiste', 14, 20);
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(11);
-  doc.text('Programme / Booking complet', 14, 29);
-  doc.setFontSize(9);
-  doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}`, 14, 36);
+  const MARGIN_L = 14;
+  const SIDEBAR_W = 15; // largeur réservée au grand mot "PROGRAMME" vertical
+  const CONTENT_X = MARGIN_L + SIDEBAR_W;
+  const CONTENT_R = pageWidth - 12;
+  const FOOTER_H = 12;
+  const BOTTOM_LIMIT = pageHeight - FOOTER_H - 12;
 
-  let y = 52;
-  doc.setTextColor(...dark);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(13);
-  doc.text('Profil', 14, y);
-  y += 7;
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(10);
-  const profileLines = [
-    p.genre ? `Genre musical : ${p.genre}` : null,
-    p.manager ? `Manager / Contact : ${p.manager}` : null,
-    p.phone ? `Téléphone : ${p.phone}` : null,
-    p.email ? `Email : ${p.email}` : null,
-  ].filter(Boolean);
-  profileLines.forEach(line => {
-    doc.setTextColor(...muted);
-    doc.text(line, 14, y);
-    y += 6;
-  });
-  if(p.bio){
-    doc.setTextColor(...dark);
-    const bioLines = doc.splitTextToSize(p.bio, pageWidth - 28);
-    doc.text(bioLines, 14, y);
-    y += bioLines.length * 5.5 + 4;
+  function lerp(a,b,t){ return a + (b-a)*t; }
+  function lerpColor(c1,c2,t){ return [lerp(c1[0],c2[0],t), lerp(c1[1],c2[1],t), lerp(c1[2],c2[2],t)]; }
+
+  /* ---------- En-tête (bandeau dégradé violet -> bleu, façon identité du site) ---------- */
+  function drawHeader(){
+    const headerH = 46;
+    const bands = 70;
+    for(let i=0;i<bands;i++){
+      const t = i/(bands-1);
+      const [r,g,b] = lerpColor(violet, blue, t);
+      doc.setFillColor(r,g,b);
+      doc.rect(0, (headerH/bands)*i, pageWidth, (headerH/bands)+0.5, 'F');
+    }
+    doc.setFillColor(...white);
+    doc.circle(17, 13.5, 1.7, 'F');
+    doc.setTextColor(...white);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(9);
+    doc.text('ARTIST OS', 21.5, 15);
+
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(25);
+    doc.text((p.name || 'Programme artiste').toUpperCase(), MARGIN_L, 30);
+
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(11);
+    doc.text('Programme complet · Booking', MARGIN_L, 38);
+
+    const yearStr = String(new Date().getFullYear());
+    doc.setFillColor(...white);
+    doc.roundedRect(pageWidth - 36, 8, 22, 13, 3, 3, 'F');
+    doc.setTextColor(...violetDark);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(14);
+    doc.text(yearStr, pageWidth - 25, 17, {align:'center'});
+
+    doc.setTextColor(...white);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7.5);
+    doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}`, pageWidth - 12, 27, {align:'right'});
+
+    return headerH;
   }
 
-  y += 4;
-  doc.setDrawColor(231,229,243);
-  doc.line(14, y, pageWidth - 14, y);
-  y += 10;
+  const pageContentTop = {1: 0};
+  let y = drawHeader() + 12;
+
+  /* ---------- Profil (compact, une seule ligne + bio courte) ---------- */
+  doc.setTextColor(...dark);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(10.5);
+  doc.text('PROFIL', CONTENT_X, y);
+  y += 6;
+  const profileBits = [
+    p.genre || null,
+    p.manager ? `Manager : ${p.manager}` : null,
+    p.phone ? `Tél : ${p.phone}` : null,
+    p.email ? `Email : ${p.email}` : null,
+  ].filter(Boolean);
+  if(profileBits.length){
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...muted);
+    doc.text(profileBits.join('   ·   '), CONTENT_X, y);
+    y += 5.5;
+  }
+  if(p.bio){
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...dark);
+    const bioLines = doc.splitTextToSize(p.bio, CONTENT_R - CONTENT_X);
+    doc.text(bioLines, CONTENT_X, y);
+    y += bioLines.length * 4.6 + 2;
+  }
+  y += 5;
+  doc.setDrawColor(...surfaceSoft);
+  doc.setLineWidth(0.4);
+  doc.line(CONTENT_X, y, CONTENT_R, y);
+  y += 8;
+
+  pageContentTop[1] = y;
+
+  /* ---------- Ajout de page avec suivi des bornes (pour le mot vertical + pied de page) ---------- */
+  function ensureSpace(needed){
+    if(y + needed > BOTTOM_LIMIT){
+      doc.addPage();
+      const pageNum = doc.internal.getNumberOfPages();
+      y = 18;
+      pageContentTop[pageNum] = y;
+      return true;
+    }
+    return false;
+  }
+
+  /* ---------- Programme groupé par date ---------- */
+  const events = (DATA.bookings || []).slice().sort((a,b)=> daysUntil(a.date) - daysUntil(b.date));
 
   doc.setFont('helvetica','bold');
-  doc.setFontSize(13);
+  doc.setFontSize(12.5);
   doc.setTextColor(...dark);
-  doc.text('Programme complet', 14, y);
+  doc.text('PROGRAMME', CONTENT_X, y);
   y += 9;
-
-  const events = (DATA.bookings || []).slice().sort((a,b)=> daysUntil(a.date) - daysUntil(b.date));
 
   if(!events.length){
     doc.setFont('helvetica','normal');
-    doc.setFontSize(10);
+    doc.setFontSize(9.5);
     doc.setTextColor(...muted);
-    doc.text('Aucun événement enregistré pour le moment.', 14, y);
+    doc.text('Aucun événement enregistré pour le moment.', CONTENT_X, y);
   }
 
-  events.forEach((b, i) => {
-    if(y > pageHeight - 30){
-      doc.addPage();
-      y = 20;
-    }
-    const isDone = b.status === 'terminé';
-    const isCancelled = b.confirmation === 'annulé';
-    const dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric'});
-    if(i % 2 === 0){
-      doc.setFillColor(241,240,250);
-      doc.rect(10, y - 5, pageWidth - 20, 16, 'F');
-    }
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(10);
-    doc.setTextColor(...dark);
-    doc.text(dateStr, 14, y);
-    if(b.time){
-      doc.setFont('helvetica','normal');
-      doc.setTextColor(...muted);
-      doc.text(b.time, 40, y);
-    }
-    doc.setFont('helvetica','bold');
-    doc.setTextColor(...(isDone ? [32,178,108] : blue));
-    doc.text(b.type || '', 58, y);
-    doc.setFont('helvetica','normal');
-    doc.setTextColor(...dark);
-    doc.text(b.title || '', 90, y);
-    doc.setFontSize(8);
-    doc.setTextColor(...(isCancelled ? [239,90,90] : muted));
-    const confirmLabel = isCancelled ? 'Annulé' : (b.confirmation === 'option' ? 'En option' : 'Confirmé');
-    doc.text(confirmLabel, pageWidth - 34, y);
-
-    if(b.location){
-      y += 5;
-      doc.setFontSize(8.5);
-      doc.setTextColor(...muted);
-      doc.text(`Lieu : ${b.location}`, 14, y);
-    }
-    if(b.contact){
-      y += 5;
-      doc.setFontSize(8.5);
-      doc.setTextColor(...muted);
-      doc.text(`Contact : ${b.contact}`, 14, y);
-    }
-    if(b.notes){
-      y += 5;
-      doc.setFontSize(8.5);
-      const noteLines = doc.splitTextToSize(b.notes, pageWidth - 32);
-      doc.text(noteLines, 14, y);
-      y += (noteLines.length - 1) * 4;
-    }
-    y += 11;
+  const groups = [];
+  events.forEach(b => {
+    let g = groups.find(gr => gr.date === b.date);
+    if(!g){ g = {date:b.date, items:[]}; groups.push(g); }
+    g.items.push(b);
   });
 
+  groups.forEach(group => {
+    ensureSpace(16);
+    const dLabel = new Date(group.date + 'T00:00:00').toLocaleDateString('fr-FR', {weekday:'long', day:'2-digit', month:'long', year:'numeric'});
+    const dLabelCap = dLabel.charAt(0).toUpperCase() + dLabel.slice(1);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(11);
+    doc.setTextColor(...violetDark);
+    doc.text(dLabelCap, CONTENT_X, y);
+    y += 7;
+
+    group.items.forEach(b => {
+      const isCancelled = b.confirmation === 'annulé';
+      const isDone = b.status === 'terminé';
+      const confirmColor = isCancelled ? red : (b.confirmation === 'option' ? orange : green);
+      const confirmLabel = isCancelled ? 'ANNULÉ' : (b.confirmation === 'option' ? 'EN OPTION' : 'CONFIRMÉ');
+      const eff = bookingStatusInfo(b);
+      const accentColor = isCancelled ? muted : (isDone ? green : (statusDotClass(eff.cls) ? blue : blue));
+
+      /* -- ligne pilule horaire + statut de confirmation -- */
+      const pillH = 7;
+      ensureSpace(pillH + 4);
+      if(b.time){
+        const pillW = doc.getTextWidth(b.time) + 12;
+        doc.setDrawColor(...violet);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(CONTENT_X, y, pillW, pillH, pillH/2, pillH/2, 'S');
+        doc.setTextColor(...violetDark);
+        doc.setFont('helvetica','bold');
+        doc.setFontSize(9);
+        doc.text(b.time, CONTENT_X + pillW/2, y + pillH/2 + 1.2, {align:'center'});
+      }
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...confirmColor);
+      doc.text(confirmLabel, CONTENT_R, y + pillH/2 + 1, {align:'right'});
+      y += pillH + 2.5;
+
+      /* -- calcul du contenu de la boîte -- */
+      const boxX = CONTENT_X;
+      const boxW = CONTENT_R - CONTENT_X;
+      const innerX = boxX + 5;
+      const innerW = boxW - 10;
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(8.3);
+      const locLine = b.location ? `Lieu : ${b.location}` : null;
+      const contactLine = b.contact ? `Contact : ${b.contact}` : null;
+      const noteLines = b.notes ? doc.splitTextToSize(`Notes : ${b.notes}`, innerW) : [];
+
+      let boxH = 5 + 6; // padding haut + ligne titre
+      if(locLine) boxH += 4.6;
+      if(contactLine) boxH += 4.6;
+      if(noteLines.length) boxH += noteLines.length * 4.2;
+      boxH += 4; // padding bas
+
+      ensureSpace(boxH + 5);
+
+      doc.setFillColor(...(isCancelled ? [248,247,252] : white));
+      doc.setDrawColor(...border);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(boxX, y, boxW, boxH, 2.5, 2.5, 'FD');
+      // liseré de statut à gauche de la boîte
+      doc.setFillColor(...accentColor);
+      doc.roundedRect(boxX, y, 1.6, boxH, 0.8, 0.8, 'F');
+
+      let ty = y + 7;
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(10);
+      doc.setTextColor(...(isCancelled ? muted : dark));
+      doc.text(b.title || '', innerX, ty);
+      const titleW = doc.getTextWidth(b.title || '');
+      if(b.type){
+        doc.setFont('helvetica','normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...blue);
+        doc.text(b.type, innerX + titleW + 4, ty);
+      }
+      if(isDone){
+        doc.setFont('helvetica','bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(...green);
+        doc.text('TERMINÉ', boxX + boxW - 5, ty, {align:'right'});
+      }
+      ty += 5;
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(8.3);
+      doc.setTextColor(...muted);
+      if(locLine){ doc.text(locLine, innerX, ty); ty += 4.6; }
+      if(contactLine){ doc.text(contactLine, innerX, ty); ty += 4.6; }
+      if(noteLines.length){
+        doc.setTextColor(...dark);
+        doc.text(noteLines, innerX, ty);
+        ty += noteLines.length * 4.2;
+      }
+
+      y += boxH + 6;
+    });
+    y += 2;
+  });
+
+  /* ---------- Mot vertical "PROGRAMME" + pied de page violet, sur chaque page ---------- */
   const pageCount = doc.internal.getNumberOfPages();
   for(let i = 1; i <= pageCount; i++){
     doc.setPage(i);
+
+    doc.setTextColor(...violet);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(32);
+    doc.text('PROGRAMME', 9, pageHeight - 22, {angle:90});
+
+    const barY = pageHeight - FOOTER_H - 4;
+    doc.setFillColor(...violet);
+    doc.roundedRect(CONTENT_X, barY, CONTENT_R - CONTENT_X, FOOTER_H, FOOTER_H/2, FOOTER_H/2, 'F');
+    doc.setTextColor(...white);
+    doc.setFont('helvetica','bold');
     doc.setFontSize(8);
-    doc.setTextColor(...muted);
-    doc.text(`${p.name || 'Artist OS'} · page ${i}/${pageCount}`, 14, pageHeight - 10);
+    const contactBits = [p.phone, p.email].filter(Boolean).join('   ·   ');
+    doc.text(contactBits || p.manager || p.name || 'Artist OS', CONTENT_X + 6, barY + FOOTER_H/2 + 1.3);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7.5);
+    doc.text(`page ${i}/${pageCount}`, CONTENT_R - 6, barY + FOOTER_H/2 + 1.3, {align:'right'});
   }
 
   const filename = `programme-${slugify(p.name || 'artiste')}-${new Date().toISOString().slice(0,10)}.pdf`;
