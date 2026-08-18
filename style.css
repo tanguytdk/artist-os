@@ -206,3 +206,6 @@ h1,h2,h3,.brand{font-family:'Sora',sans-serif;}
   width:100%;flex:1 1 100%;border:1px solid var(--border);border-radius:10px;padding:9px 12px;font-size:13px;
   font-family:'Inter',sans-serif;background:var(--surface-soft);color:var(--text);resize:vertical;min-height:60px;
 }
+.artist-profile{display:flex;flex-direction:column;gap:6px;font-size:13px;}
+.artist-profile .row{display:flex;gap:10px;align-items:baseline;}
+.artist-profile .row b{min-width:140px;color:var(--muted);font-weight:600;font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.04em;}
