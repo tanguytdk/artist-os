@@ -209,3 +209,27 @@ h1,h2,h3,.brand{font-family:'Sora',sans-serif;}
 .artist-profile{display:flex;flex-direction:column;gap:6px;font-size:13px;}
 .artist-profile .row{display:flex;gap:10px;align-items:baseline;}
 .artist-profile .row b{min-width:140px;color:var(--muted);font-weight:600;font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.04em;}
+
+/* Badges de statut de confirmation (Booking) */
+.booking-confirm-tag{
+  display:inline-block;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px;
+  font-weight:600;
+  border-radius:5px;
+  padding:1px 6px;
+  margin-left:6px;
+  vertical-align:middle;
+}
+.booking-confirm-tag.confirmed{
+  color:var(--green);
+  background:rgba(32,178,108,0.12);
+}
+.booking-confirm-tag.option{
+  color:var(--orange);
+  background:rgba(245,165,36,0.12);
+}
+.booking-confirm-tag.cancelled{
+  color:var(--red);
+  background:rgba(239,90,90,0.12);
+}
