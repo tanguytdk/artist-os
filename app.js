@@ -1059,6 +1059,18 @@ async function generateBookingPDF(){
   function lerp(a,b,t){ return a + (b-a)*t; }
   function lerpColor(c1,c2,t){ return [lerp(c1[0],c2[0],t), lerp(c1[1],c2[1],t), lerp(c1[2],c2[2],t)]; }
 
+  // Les polices standards du PDF (Helvetica) ne savent afficher que les caractères latins courants
+  // (accents français inclus). Un titre tapé avec une police "stylée" (générateur de texte fantaisie,
+  // caractères spéciaux copiés-collés) contient des symboles unicode que la police ne connaît pas et
+  // qui s'affichent comme des glyphes corrompus. On les remplace proprement par un espace pour éviter ça.
+  function pdfSafe(str){
+    if(!str) return '';
+    return String(str)
+      .replace(/[^\x20-\x7E\u00A0-\u017F\u2018\u2019\u201C\u201D\u2013\u2014\u2026]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   function fillPageBg(){
     doc.setFillColor(...bgDark);
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
@@ -1125,7 +1137,7 @@ async function generateBookingPDF(){
 
     doc.setFont('helvetica','bold');
     doc.setFontSize(25);
-    doc.text((p.name || 'Programme artiste').toUpperCase(), MARGIN_L, 30);
+    doc.text(pdfSafe(p.name || 'Programme artiste').toUpperCase(), MARGIN_L, 30);
 
     doc.setFont('helvetica','normal');
     doc.setFontSize(11);
@@ -1158,10 +1170,10 @@ async function generateBookingPDF(){
   doc.text('PROFIL', CONTENT_X, y);
   y += 6;
   const profileBits = [
-    p.genre || null,
-    p.manager ? `Manager : ${p.manager}` : null,
-    p.phone ? `Tél : ${p.phone}` : null,
-    p.email ? `Email : ${p.email}` : null,
+    p.genre ? pdfSafe(p.genre) : null,
+    p.manager ? `Manager : ${pdfSafe(p.manager)}` : null,
+    p.phone ? `Tél : ${pdfSafe(p.phone)}` : null,
+    p.email ? `Email : ${pdfSafe(p.email)}` : null,
   ].filter(Boolean);
   if(profileBits.length){
     doc.setFont('helvetica','normal');
@@ -1174,7 +1186,7 @@ async function generateBookingPDF(){
     doc.setFont('helvetica','normal');
     doc.setFontSize(9);
     doc.setTextColor(...white);
-    const bioLines = doc.splitTextToSize(p.bio, CONTENT_R - CONTENT_X);
+    const bioLines = doc.splitTextToSize(pdfSafe(p.bio), CONTENT_R - CONTENT_X);
     doc.text(bioLines, CONTENT_X, y);
     y += bioLines.length * 4.6 + 2;
   }
@@ -1247,9 +1259,9 @@ async function generateBookingPDF(){
       const innerW = boxW - 10;
       doc.setFont('helvetica','normal');
       doc.setFontSize(8.3);
-      const locLine = b.location ? `Lieu : ${b.location}` : null;
-      const contactLine = b.contact ? `Contact : ${b.contact}` : null;
-      const noteLines = b.notes ? doc.splitTextToSize(`Notes : ${b.notes}`, innerW) : [];
+      const locLine = b.location ? `Lieu : ${pdfSafe(b.location)}` : null;
+      const contactLine = b.contact ? `Contact : ${pdfSafe(b.contact)}` : null;
+      const noteLines = b.notes ? doc.splitTextToSize(`Notes : ${pdfSafe(b.notes)}`, innerW) : [];
 
       let boxH = 5 + 6;
       if(locLine) boxH += 4.6;
@@ -1287,13 +1299,14 @@ async function generateBookingPDF(){
       doc.setFont('helvetica','bold');
       doc.setFontSize(10);
       doc.setTextColor(...(isCancelled ? mutedLight : white));
-      doc.text(b.title || '', innerX, ty);
-      const titleW = doc.getTextWidth(b.title || '');
+      const safeTitle = pdfSafe(b.title) || '(sans titre)';
+      doc.text(safeTitle, innerX, ty);
+      const titleW = doc.getTextWidth(safeTitle);
       if(b.type){
         doc.setFont('helvetica','normal');
         doc.setFontSize(8);
         doc.setTextColor(...blue);
-        doc.text(b.type, innerX + titleW + 4, ty);
+        doc.text(pdfSafe(b.type), innerX + titleW + 4, ty);
       }
       if(isDone){
         doc.setFont('helvetica','bold');
@@ -1363,8 +1376,8 @@ async function generateBookingPDF(){
     doc.setTextColor(...white);
     doc.setFont('helvetica','bold');
     doc.setFontSize(8);
-    const contactBits = [p.phone, p.email].filter(Boolean).join('   ·   ');
-    doc.text(contactBits || p.manager || p.name || 'Artist OS', CONTENT_X + 6, barY + FOOTER_H/2 + 1.3);
+    const contactBits = [p.phone, p.email].filter(Boolean).map(pdfSafe).join('   ·   ');
+    doc.text(contactBits || pdfSafe(p.manager) || pdfSafe(p.name) || 'Artist OS', CONTENT_X + 6, barY + FOOTER_H/2 + 1.3);
     doc.setFont('helvetica','normal');
     doc.setFontSize(7.5);
     doc.text(`page ${i}/${pageCount}`, CONTENT_R - 6, barY + FOOTER_H/2 + 1.3, {align:'right'});
