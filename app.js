@@ -1133,7 +1133,7 @@ async function generateBookingPDF(){
     doc.setTextColor(...white);
     doc.setFont('helvetica','bold');
     doc.setFontSize(9);
-    doc.text('ARTIST OS', 21.5, 15);
+    doc.text('Roi et Sacrificateur', 21.5, 15);
 
     doc.setFont('helvetica','bold');
     doc.setFontSize(25);
@@ -1217,7 +1217,7 @@ async function generateBookingPDF(){
   doc.setFont('helvetica','bold');
   doc.setFontSize(12.5);
   doc.setTextColor(...white);
-  doc.text('PROGRAMME', CONTENT_X, y);
+  doc.text('BOOKING', CONTENT_X, y);
   y += 9;
 
   if(!events.length){
@@ -1336,7 +1336,7 @@ async function generateBookingPDF(){
      latérale ni du bord de page), et on étire le mot jusqu'à la hauteur disponible en espaçant les lettres
      (charSpace), plutôt qu'en grossissant la police — ce qui évite tout risque de texte coupé. */
   const pageCount = doc.internal.getNumberOfPages();
-  const SIDEBAR_WORD = 'PROGRAMME';
+  const SIDEBAR_WORD = 'BOOKING';
   const SIDEBAR_X = 17; // ancrage horizontal du mot, à l'intérieur de la colonne latérale
   const SIDEBAR_FONT = 36; // taille fixe et sûre (épaisseur des lettres ≈ 12-13mm, tient dans SIDEBAR_W)
   doc.setFont('helvetica','bold');
