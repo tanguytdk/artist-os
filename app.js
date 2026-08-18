@@ -59,6 +59,10 @@ function seedShared(){
       {time:'08:40', text:'✅ Les looks du styliste ont été validés.'},
       {time:'Hier', text:'📁 Nouveau fichier disponible : rushes du tournage.'},
       {time:'Hier', text:'📅 Shooting pochette prévu demain.'},
+    ],
+    bookings: [
+      {id:'bk1', title:'Interview radio', type:'Interview', date:d(2), time:'14:00', notes:'Prévoir visuel pochette et bio à jour.', status:'à venir'},
+      {id:'bk2', title:'Répétition avant clip', type:'Répétition', date:d(-3), time:'10:00', notes:'Studio B, avec danseurs.', status:'terminé'},
     ]
   };
 }
@@ -75,7 +79,7 @@ function saveLocalPrefs(){
     currentProjectId: DATA.currentProjectId
   }));
 }
-let DATA = Object.assign({ projects: [], tasks: [], notifications: [] }, loadLocalPrefs());
+let DATA = Object.assign({ projects: [], tasks: [], notifications: [], bookings: [] }, loadLocalPrefs());
 let dataReady = false;
 function saveData(data){
   saveLocalPrefs();
@@ -83,7 +87,8 @@ function saveData(data){
   DOC_REF.set({
     projects: data.projects,
     tasks: data.tasks,
-    notifications: data.notifications
+    notifications: data.notifications,
+    bookings: data.bookings
   }).then(() => setSyncBadge('ok')).catch(err => {
     console.error('Erreur de sauvegarde Firestore :', err);
     setSyncBadge('err');
@@ -134,7 +139,6 @@ function logout(){
   auth.signOut();
 }
 window.logout = logout;
-/* --- NOUVEAU : déconnexion automatique après 5 minutes d'inactivité --- */
 const INACTIVITY_LIMIT_MS = 5 * 60 * 1000;
 let inactivityTimer = null;
 let loggedOutForInactivity = false;
@@ -183,6 +187,7 @@ function startSync(){
       DATA.projects = shared.projects || [];
       DATA.tasks = shared.tasks || [];
       DATA.notifications = shared.notifications || [];
+      DATA.bookings = shared.bookings || [];
       if(!DATA.currentProjectId || !DATA.projects.some(p => p.id === DATA.currentProjectId)){
         DATA.currentProjectId = DATA.projects[0] ? DATA.projects[0].id : null;
       }
@@ -211,7 +216,8 @@ function exportData(){
     exportedAt: new Date().toISOString(),
     projects: DATA.projects,
     tasks: DATA.tasks,
-    notifications: DATA.notifications
+    notifications: DATA.notifications,
+    bookings: DATA.bookings
   };
   const blob = new Blob([JSON.stringify(backup, null, 2)], {type: 'application/json'});
   const url = URL.createObjectURL(blob);
@@ -244,7 +250,8 @@ function importData(file){
     DOC_REF.set({
       projects: parsed.projects,
       tasks: parsed.tasks,
-      notifications: parsed.notifications || []
+      notifications: parsed.notifications || [],
+      bookings: parsed.bookings || []
     }).then(() => setSyncBadge('ok')).catch(err => {
       console.error('Erreur de restauration Firestore :', err);
       setSyncBadge('err');
@@ -307,11 +314,6 @@ function myTasks(){
   const inProject = DATA.tasks.filter(t => t.projectId === DATA.currentProjectId);
   if(role === 'artiste' || role === 'manager') return inProject;
   return inProject.filter(t => t.role === role);
-}
-function allMyTasks(){
-  const role = DATA.currentRole;
-  if(role === 'artiste' || role === 'manager') return DATA.tasks;
-  return DATA.tasks.filter(t => t.role === role);
 }
 function projectTitleOf(task){
   const p = DATA.projects.find(pr => pr.id === task.projectId);
@@ -436,6 +438,9 @@ function renderAll(){
   if(document.getElementById('view-tasks').classList.contains('active')){
     renderTasksView();
   }
+  if(document.getElementById('view-booking').classList.contains('active')){
+    renderBookingList();
+  }
 }
 /* ============ CALENDAR ============ */
 let currentMonth = new Date();
@@ -446,13 +451,16 @@ function switchView(view){
   document.getElementById('navCalendar').classList.toggle('active', view === 'calendar');
   document.getElementById('navProjects').classList.toggle('active', view === 'projects');
   document.getElementById('navTasks').classList.toggle('active', view === 'tasks');
+  document.getElementById('navBooking').classList.toggle('active', view === 'booking');
   document.getElementById('view-dashboard').classList.toggle('active', view === 'dashboard');
   document.getElementById('view-calendar').classList.toggle('active', view === 'calendar');
   document.getElementById('view-projects').classList.toggle('active', view === 'projects');
   document.getElementById('view-tasks').classList.toggle('active', view === 'tasks');
+  document.getElementById('view-booking').classList.toggle('active', view === 'booking');
   if(view === 'calendar') renderCalendar();
   if(view === 'projects') renderProjectsList();
   if(view === 'tasks') renderTasksView();
+  if(view === 'booking') renderBookingList();
 }
 window.switchView = switchView;
 function shiftMonth(delta){
@@ -462,7 +470,7 @@ function shiftMonth(delta){
 window.shiftMonth = shiftMonth;
 function tasksByDate(){
   const map = {};
-  allMyTasks().forEach(t => {
+  myTasks().forEach(t => {
     (map[t.due] = map[t.due] || []).push(t);
   });
   return map;
@@ -792,6 +800,97 @@ document.getElementById('newTaskForm').addEventListener('submit', (e) => {
   saveData(DATA);
   e.target.reset();
   renderAll();
+});
+/* ============ BOOKING (agenda de l'artiste) ============ */
+function bookingById(id){ return DATA.bookings.find(b=>b.id===id); }
+function bookingStatusInfo(b){
+  if(b.status === 'terminé') return {label:'Terminé', cls:'done'};
+  const n = daysUntil(b.date);
+  if(n < 0) return {label:'Passé (non marqué terminé)', cls:'late'};
+  if(n === 0) return {label:"Aujourd'hui", cls:'progress'};
+  if(n === 1) return {label:'Demain', cls:'upcoming'};
+  return {label:`Dans ${n} j`, cls:'upcoming'};
+}
+function bookingRowHtml(b){
+  const info = bookingStatusInfo(b);
+  const timeStr = b.time ? ` · ${b.time}` : '';
+  const dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'});
+  return `
+    <div class="task">
+      <span class="task-dot ${info.cls}"></span>
+      <div class="task-body">
+        <div class="task-title">${b.title} <span class="task-project-tag">${b.type}</span></div>
+        <div class="task-sub">${dateStr}${timeStr} · ${info.label}</div>
+        ${b.notes ? `<div class="task-block-reason" style="color:var(--muted);">${b.notes}</div>` : ''}
+      </div>
+      <select onchange="changeBookingStatus('${b.id}', this.value)">
+        <option value="à venir" ${b.status!=='terminé'?'selected':''}>à venir</option>
+        <option value="terminé" ${b.status==='terminé'?'selected':''}>terminé</option>
+      </select>
+      <button class="icon-btn" title="Modifier" onclick="editBooking('${b.id}')">✎</button>
+      <button class="icon-btn danger" title="Supprimer" onclick="deleteBooking('${b.id}')">🗑</button>
+    </div>`;
+}
+function renderBookingList(){
+  const upcoming = DATA.bookings.filter(b => b.status !== 'terminé').sort((a,b)=> daysUntil(a.date) - daysUntil(b.date));
+  const past = DATA.bookings.filter(b => b.status === 'terminé').sort((a,b)=> daysUntil(b.date) - daysUntil(a.date));
+  const upEl = document.getElementById('bookingUpcomingList');
+  const pastEl = document.getElementById('bookingPastList');
+  if(upEl) upEl.innerHTML = upcoming.length ? upcoming.map(b=>bookingRowHtml(b)).join('') : `<div class="empty">Aucun événement à venir pour l'instant.</div>`;
+  if(pastEl) pastEl.innerHTML = past.length ? past.map(b=>bookingRowHtml(b)).join('') : `<div class="empty">Aucun événement terminé pour l'instant.</div>`;
+}
+function changeBookingStatus(id, status){
+  const b = bookingById(id);
+  if(!b) return;
+  b.status = status;
+  saveData(DATA);
+  renderBookingList();
+}
+window.changeBookingStatus = changeBookingStatus;
+function editBooking(id){
+  const b = bookingById(id);
+  if(!b) return;
+  const newTitle = prompt('Titre :', b.title);
+  if(newTitle === null) return;
+  const newDate = prompt('Date (AAAA-MM-JJ) :', b.date);
+  if(newDate === null) return;
+  const newTime = prompt('Heure (HH:MM, laisse vide si aucune) :', b.time || '');
+  if(newTime === null) return;
+  const newNotes = prompt('Détails / ce qu\'il y aura à faire :', b.notes || '');
+  if(newNotes === null) return;
+  if(newTitle.trim()) b.title = newTitle.trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(newDate.trim())) b.date = newDate.trim();
+  else if(newDate.trim() !== b.date){
+    alert('Format de date invalide, la date n\'a pas été changée (utilise AAAA-MM-JJ).');
+  }
+  b.time = newTime.trim();
+  b.notes = newNotes.trim();
+  saveData(DATA);
+  renderBookingList();
+}
+window.editBooking = editBooking;
+function deleteBooking(id){
+  const b = bookingById(id);
+  if(!b) return;
+  if(!confirm(`Supprimer "${b.title}" de l'agenda ? Cette action est irréversible.`)) return;
+  DATA.bookings = DATA.bookings.filter(x => x.id !== id);
+  saveData(DATA);
+  renderBookingList();
+}
+window.deleteBooking = deleteBooking;
+document.getElementById('newBookingForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const title = document.getElementById('bkTitle').value.trim();
+  const type = document.getElementById('bkType').value;
+  const date = document.getElementById('bkDate').value;
+  const time = document.getElementById('bkTime').value;
+  const notes = document.getElementById('bkNotes').value.trim();
+  if(!title || !date) return;
+  const id = `bk_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,6)}`;
+  DATA.bookings.push({ id, title, type, date, time, notes, status: 'à venir' });
+  saveData(DATA);
+  e.target.reset();
+  renderBookingList();
 });
 /* ============ INIT ============ */
 startSync();
