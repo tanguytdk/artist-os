@@ -25,6 +25,9 @@ const ROLES = [
   {id:'manager', label:'Manager', icon:'📋'},
 ];
 const LOCAL_KEY = 'artistos_local_v1';
+function defaultArtistProfile(){
+  return { name:'Tanguy DJE RoiStar', genre:'', bio:'', manager:'', phone:'', email:'' };
+}
 function seedShared(){
   const today = new Date();
   const d = (offsetDays) => {
@@ -63,7 +66,8 @@ function seedShared(){
     bookings: [
       {id:'bk1', title:'Interview radio', type:'Interview', date:d(2), time:'14:00', notes:'Prévoir visuel pochette et bio à jour.', status:'à venir'},
       {id:'bk2', title:'Répétition avant clip', type:'Répétition', date:d(-3), time:'10:00', notes:'Studio B, avec danseurs.', status:'terminé'},
-    ]
+    ],
+    artistProfile: defaultArtistProfile()
   };
 }
 function loadLocalPrefs(){
@@ -79,7 +83,7 @@ function saveLocalPrefs(){
     currentProjectId: DATA.currentProjectId
   }));
 }
-let DATA = Object.assign({ projects: [], tasks: [], notifications: [], bookings: [] }, loadLocalPrefs());
+let DATA = Object.assign({ projects: [], tasks: [], notifications: [], bookings: [], artistProfile: defaultArtistProfile() }, loadLocalPrefs());
 let dataReady = false;
 function saveData(data){
   saveLocalPrefs();
@@ -88,7 +92,8 @@ function saveData(data){
     projects: data.projects,
     tasks: data.tasks,
     notifications: data.notifications,
-    bookings: data.bookings
+    bookings: data.bookings,
+    artistProfile: data.artistProfile
   }).then(() => setSyncBadge('ok')).catch(err => {
     console.error('Erreur de sauvegarde Firestore :', err);
     setSyncBadge('err');
@@ -188,6 +193,7 @@ function startSync(){
       DATA.tasks = shared.tasks || [];
       DATA.notifications = shared.notifications || [];
       DATA.bookings = shared.bookings || [];
+      DATA.artistProfile = shared.artistProfile || defaultArtistProfile();
       if(!DATA.currentProjectId || !DATA.projects.some(p => p.id === DATA.currentProjectId)){
         DATA.currentProjectId = DATA.projects[0] ? DATA.projects[0].id : null;
       }
@@ -217,7 +223,8 @@ function exportData(){
     projects: DATA.projects,
     tasks: DATA.tasks,
     notifications: DATA.notifications,
-    bookings: DATA.bookings
+    bookings: DATA.bookings,
+    artistProfile: DATA.artistProfile
   };
   const blob = new Blob([JSON.stringify(backup, null, 2)], {type: 'application/json'});
   const url = URL.createObjectURL(blob);
@@ -251,7 +258,8 @@ function importData(file){
       projects: parsed.projects,
       tasks: parsed.tasks,
       notifications: parsed.notifications || [],
-      bookings: parsed.bookings || []
+      bookings: parsed.bookings || [],
+      artistProfile: parsed.artistProfile || defaultArtistProfile()
     }).then(() => setSyncBadge('ok')).catch(err => {
       console.error('Erreur de restauration Firestore :', err);
       setSyncBadge('err');
@@ -440,6 +448,7 @@ function renderAll(){
   }
   if(document.getElementById('view-booking').classList.contains('active')){
     renderBookingList();
+    renderArtistProfile();
   }
 }
 /* ============ CALENDAR ============ */
@@ -460,7 +469,7 @@ function switchView(view){
   if(view === 'calendar') renderCalendar();
   if(view === 'projects') renderProjectsList();
   if(view === 'tasks') renderTasksView();
-  if(view === 'booking') renderBookingList();
+  if(view === 'booking'){ renderBookingList(); renderArtistProfile(); }
 }
 window.switchView = switchView;
 function shiftMonth(delta){
@@ -892,5 +901,167 @@ document.getElementById('newBookingForm').addEventListener('submit', (e) => {
   e.target.reset();
   renderBookingList();
 });
+/* ============ PROFIL ARTISTE & PDF ============ */
+function renderArtistProfile(){
+  const p = Object.assign(defaultArtistProfile(), DATA.artistProfile || {});
+  const el = document.getElementById('artistProfileView');
+  if(!el) return;
+  const rows = [
+    ['Nom d\'artiste', p.name],
+    ['Genre musical', p.genre],
+    ['Bio', p.bio],
+    ['Manager / Contact', p.manager],
+    ['Téléphone', p.phone],
+    ['Email', p.email],
+  ];
+  el.innerHTML = rows.map(([label, val]) => `<div class="row"><b>${label}</b><span>${val ? val : 'Non renseigné'}</span></div>`).join('');
+}
+function editArtistProfile(){
+  const p = Object.assign(defaultArtistProfile(), DATA.artistProfile || {});
+  const name = prompt('Nom d\'artiste :', p.name);
+  if(name === null) return;
+  const genre = prompt('Genre musical :', p.genre);
+  if(genre === null) return;
+  const bio = prompt('Bio courte :', p.bio);
+  if(bio === null) return;
+  const manager = prompt('Manager / Contact :', p.manager);
+  if(manager === null) return;
+  const phone = prompt('Téléphone :', p.phone);
+  if(phone === null) return;
+  const email = prompt('Email :', p.email);
+  if(email === null) return;
+  DATA.artistProfile = {
+    name: name.trim(), genre: genre.trim(), bio: bio.trim(),
+    manager: manager.trim(), phone: phone.trim(), email: email.trim()
+  };
+  saveData(DATA);
+  renderArtistProfile();
+}
+window.editArtistProfile = editArtistProfile;
+
+function downloadBookingPDF(){
+  if(!window.jspdf){
+    alert('Le générateur de PDF n\'a pas pu se charger. Vérifie ta connexion et réessaie.');
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const p = Object.assign(defaultArtistProfile(), DATA.artistProfile || {});
+  const violet = [139,92,246];
+  const blue = [91,157,249];
+  const dark = [33,30,48];
+  const muted = [117,113,140];
+
+  doc.setFillColor(...violet);
+  doc.rect(0, 0, pageWidth, 42, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(22);
+  doc.text(p.name || 'Programme artiste', 14, 20);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(11);
+  doc.text('Programme / Booking complet', 14, 29);
+  doc.setFontSize(9);
+  doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}`, 14, 36);
+
+  let y = 52;
+  doc.setTextColor(...dark);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(13);
+  doc.text('Profil', 14, y);
+  y += 7;
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(10);
+  const profileLines = [
+    p.genre ? `Genre musical : ${p.genre}` : null,
+    p.manager ? `Manager / Contact : ${p.manager}` : null,
+    p.phone ? `Téléphone : ${p.phone}` : null,
+    p.email ? `Email : ${p.email}` : null,
+  ].filter(Boolean);
+  profileLines.forEach(line => {
+    doc.setTextColor(...muted);
+    doc.text(line, 14, y);
+    y += 6;
+  });
+  if(p.bio){
+    doc.setTextColor(...dark);
+    const bioLines = doc.splitTextToSize(p.bio, pageWidth - 28);
+    doc.text(bioLines, 14, y);
+    y += bioLines.length * 5.5 + 4;
+  }
+
+  y += 4;
+  doc.setDrawColor(231,229,243);
+  doc.line(14, y, pageWidth - 14, y);
+  y += 10;
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(13);
+  doc.setTextColor(...dark);
+  doc.text('Programme complet', 14, y);
+  y += 9;
+
+  const events = (DATA.bookings || []).slice().sort((a,b)=> daysUntil(a.date) - daysUntil(b.date));
+
+  if(!events.length){
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10);
+    doc.setTextColor(...muted);
+    doc.text('Aucun événement enregistré pour le moment.', 14, y);
+  }
+
+  events.forEach((b, i) => {
+    if(y > pageHeight - 30){
+      doc.addPage();
+      y = 20;
+    }
+    const isDone = b.status === 'terminé';
+    const dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric'});
+    if(i % 2 === 0){
+      doc.setFillColor(241,240,250);
+      doc.rect(10, y - 5, pageWidth - 20, 16, 'F');
+    }
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(10);
+    doc.setTextColor(...dark);
+    doc.text(dateStr, 14, y);
+    if(b.time){
+      doc.setFont('helvetica','normal');
+      doc.setTextColor(...muted);
+      doc.text(b.time, 40, y);
+    }
+    doc.setFont('helvetica','bold');
+    doc.setTextColor(...(isDone ? [32,178,108] : blue));
+    doc.text(b.type || '', 58, y);
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(...dark);
+    doc.text(b.title || '', 90, y);
+    doc.setFontSize(8);
+    doc.setTextColor(...muted);
+    doc.text(isDone ? 'Terminé' : 'À venir', pageWidth - 30, y);
+    if(b.notes){
+      y += 5;
+      doc.setFontSize(8.5);
+      const noteLines = doc.splitTextToSize(b.notes, pageWidth - 32);
+      doc.text(noteLines, 14, y);
+      y += (noteLines.length - 1) * 4;
+    }
+    y += 11;
+  });
+
+  const pageCount = doc.internal.getNumberOfPages();
+  for(let i = 1; i <= pageCount; i++){
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(...muted);
+    doc.text(`${p.name || 'Artist OS'} · page ${i}/${pageCount}`, 14, pageHeight - 10);
+  }
+
+  const filename = `programme-${slugify(p.name || 'artiste')}-${new Date().toISOString().slice(0,10)}.pdf`;
+  doc.save(filename);
+}
+window.downloadBookingPDF = downloadBookingPDF;
 /* ============ INIT ============ */
 startSync();
