@@ -97,15 +97,53 @@ function setSyncBadge(state){
   else if(state === 'err'){ el.textContent = '🔴 erreur de sync'; el.className = 'sync-badge err'; }
   else { el.textContent = '🔄 connexion…'; el.className = 'sync-badge'; }
 }
+/* --- NOUVEAU : gestion de l'écran de connexion --- */
+function showLoginScreen(){
+  const login = document.getElementById('loginScreen');
+  const appRoot = document.getElementById('appRoot');
+  if(login) login.style.display = 'flex';
+  if(appRoot) appRoot.style.display = 'none';
+}
+function hideLoginScreen(){
+  const login = document.getElementById('loginScreen');
+  const appRoot = document.getElementById('appRoot');
+  if(login) login.style.display = 'none';
+  if(appRoot) appRoot.style.display = 'block';
+}
+function handleLogin(e){
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginSubmitBtn');
+  errEl.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Connexion…';
+  auth.signInWithEmailAndPassword(email, password)
+    .catch(err => {
+      console.error('Erreur de connexion :', err);
+      errEl.textContent = 'Identifiant ou mot de passe incorrect.';
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.textContent = 'Se connecter';
+    });
+}
+function logout(){
+  if(!confirm('Se déconnecter ?')) return;
+  auth.signOut();
+}
+window.logout = logout;
 function startSync(){
+  const form = document.getElementById('loginForm');
+  if(form) form.addEventListener('submit', handleLogin);
   auth.onAuthStateChanged(user => {
     if(!user){
-      auth.signInAnonymously().catch(err => {
-        console.error('Erreur de connexion Firebase Auth :', err);
-        setSyncBadge('err');
-      });
+      dataReady = false;
+      showLoginScreen();
       return;
     }
+    hideLoginScreen();
     DOC_REF.onSnapshot(snap => {
       let shared;
       const banner = document.getElementById('missingDocBanner');
@@ -196,8 +234,6 @@ window.importData = importData;
 function taskById(id){ return DATA.tasks.find(t=>t.id===id); }
 function currentProject(){ return DATA.projects.find(p => p.id === DATA.currentProjectId) || DATA.projects[0]; }
 function projectTasks(projectId){ return DATA.tasks.filter(t => t.projectId === projectId); }
-/* --- CORRIGÉ : calcule le nombre de jours en arithmétique UTC pure,
-   pour ne plus dépendre du fuseau horaire du visiteur --- */
 function daysUntil(dateStr){
   const now = new Date();
   const todayUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
@@ -285,8 +321,6 @@ function renderProject(){
   const proj = currentProject();
   if(!proj) return;
   document.getElementById('projectTitle').textContent = proj.title;
-  /* --- CORRIGÉ : on ajoute T00:00:00 pour que la date soit interprétée
-     en heure locale, comme elle sera affichée (plus de décalage) --- */
   document.getElementById('projectMeta').textContent = `${proj.type} · Sortie le ${new Date(proj.releaseDate + 'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}`;
   const pct = computeProgress();
   document.getElementById('progressBar').style.width = pct + '%';
@@ -612,8 +646,6 @@ const RELEASE_TEMPLATE = [
   {key:'compte_a_rebours', title:'Compte à rebours', role:'cm', offset:-1, deps:['affiches']},
   {key:'communication', title:'Communication de sortie', role:'cm', offset:0, deps:['verification','compte_a_rebours']},
 ];
-/* --- CORRIGÉ : tout le calcul se fait en UTC pur (Date.UTC / getUTCDate / setUTCDate),
-   donc plus aucune dépendance au fuseau horaire du visiteur --- */
 function addDaysTo(dateStr, n){
   const [y, m, d] = dateStr.split('-').map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d));
