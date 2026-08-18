@@ -13,7 +13,18 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 </head>
 <body>
-
+  <div id="loginScreen" class="login-screen">
+    <form id="loginForm" class="login-card">
+      <div class="login-brand"><span class="dot"></span>Tanguy DJE RoiStar</div>
+      <h2>Connexion</h2>
+      <p class="login-sub">Accès réservé à l'équipe. Entre l'identifiant partagé pour continuer.</p>
+      <input type="email" id="loginEmail" placeholder="Identifiant" autocomplete="username" required>
+      <input type="password" id="loginPassword" placeholder="Mot de passe" autocomplete="current-password" required>
+      <div class="login-error" id="loginError"></div>
+      <button type="submit" class="cta-inline login-btn" id="loginSubmitBtn">Se connecter</button>
+    </form>
+  </div>
+  <div id="appRoot" style="display:none;">
   <div class="topbar">
     <div class="brand"><span class="dot"></span>Tanguy DJE RoiStar</div>
     <div class="nav">
@@ -33,11 +44,10 @@
         <label class="mono">RÔLE</label>
         <select id="roleSelect"></select>
       </div>
+      <button class="icon-btn" title="Se déconnecter" onclick="logout()">🔒</button>
     </div>
   </div>
-
   <div class="wrap">
-
     <div id="missingDocBanner" class="alert red" style="display:none;">
       <span>🔴</span>
       <div>
@@ -45,7 +55,6 @@
         <p>Le document Firestore n'existe pas (peut-être supprimé). L'application n'a RIEN écrasé automatiquement. Si tu veux vraiment repartir de zéro : <button class="icon-btn wide" onclick="initializeSharedDoc()">Initialiser une nouvelle base</button></p>
       </div>
     </div>
-
     <div id="view-dashboard" class="view active">
       <div class="hero">
         <div>
@@ -54,7 +63,6 @@
         </div>
         <span class="badge" id="dateBadge"></span>
       </div>
-
       <div class="grid">
         <div>
           <div class="card project-card">
@@ -66,24 +74,20 @@
               <div class="progress-label" id="progressLabel">0% prêt</div>
             </div>
           </div>
-
           <div class="card">
             <h2>À faire aujourd'hui / bientôt</h2>
             <div id="todayList"></div>
           </div>
-
           <div class="card">
             <h2>Toutes mes tâches</h2>
             <div id="allTasksList"></div>
           </div>
         </div>
-
         <div>
           <div class="card">
             <h2>Alertes</h2>
             <div id="alertsList"></div>
           </div>
-
           <div class="card">
             <h2>Notifications récentes</h2>
             <div id="notifList"></div>
@@ -91,7 +95,6 @@
         </div>
       </div>
     </div>
-
     <div id="view-calendar" class="view">
       <div class="hero">
         <div>
@@ -99,7 +102,6 @@
           <p id="calSub">Toutes les échéances qui te concernent, tous projets confondus, par mois.</p>
         </div>
       </div>
-
       <div class="card">
         <div class="cal-header">
           <button class="cal-nav" onclick="shiftMonth(-1)">‹</button>
@@ -111,13 +113,11 @@
         </div>
         <div class="cal-grid" id="calGrid"></div>
       </div>
-
       <div class="card" id="calDayCard" style="display:none;">
         <h2 id="calDayTitle">—</h2>
         <div id="calDayTasks"></div>
       </div>
     </div>
-
     <div id="view-projects" class="view">
       <div class="hero">
         <div>
@@ -125,9 +125,7 @@
           <p>Toutes tes sorties et productions. Clique une carte pour l'ouvrir dans le tableau de bord.</p>
         </div>
       </div>
-
       <div class="proj-grid" id="projectsList"></div>
-
       <div class="card">
         <h2>+ Nouvelle sortie musicale</h2>
         <form id="newProjectForm" class="new-project-form">
@@ -143,7 +141,6 @@
         <p class="form-hint">L'application crée automatiquement les tâches (arrangement, mixage, distribution, image, vidéo, promotion) avec des échéances calculées à rebours de la date de sortie.</p>
       </div>
     </div>
-
     <div id="view-tasks" class="view">
       <div class="hero">
         <div>
@@ -151,7 +148,6 @@
           <p id="tasksSub">Toutes les tâches du projet sélectionné, tous métiers confondus.</p>
         </div>
       </div>
-
       <div class="card">
         <h2>+ Nouvelle tâche</h2>
         <form id="newTaskForm" class="new-project-form">
@@ -162,16 +158,14 @@
         </form>
         <p class="form-hint">La tâche est ajoutée au projet actuellement sélectionné (visible dans l'onglet Projets). Pour lier une dépendance, utilise le bouton ✎ après création.</p>
       </div>
-
       <div class="card">
         <h2 id="tasksViewTitle">Tâches du projet</h2>
         <div id="tasksFullList"></div>
       </div>
     </div>
-
     <div class="footnote">Base de données partagée (Firebase) — modules Tableau de bord + Rôles + Calendrier + Projets + Tâches</div>
   </div>
-
+  </div>
   <script src="app.js"></script>
 </body>
 </html>
