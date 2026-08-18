@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
   <div id="loginScreen" class="login-screen">
@@ -198,6 +199,15 @@
       <div class="card">
         <h2>Passés / terminés</h2>
         <div id="bookingPastList"></div>
+      </div>
+      <div class="card">
+        <h2>Profil artiste (pour le PDF)</h2>
+        <div id="artistProfileView" class="artist-profile"></div>
+        <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+          <button class="icon-btn wide" onclick="editArtistProfile()">✎ Modifier le profil</button>
+          <button class="cta-inline" onclick="downloadBookingPDF()">⬇️ Télécharger le programme complet en PDF</button>
+        </div>
+        <p class="form-hint">Le PDF reprend le profil ci-dessus ainsi que tous les événements du booking (à venir et terminés), triés par date.</p>
       </div>
     </div>
     <div class="footnote">Base de données partagée (Firebase) — modules Tableau de bord + Rôles + Calendrier + Projets + Tâches + Booking</div>
