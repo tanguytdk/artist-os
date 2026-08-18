@@ -32,6 +32,7 @@
       <div class="tab" id="navCalendar" onclick="switchView('calendar')">Calendrier</div>
       <div class="tab" id="navProjects" onclick="switchView('projects')">Projets</div>
       <div class="tab" id="navTasks" onclick="switchView('tasks')">Tâches</div>
+      <div class="tab" id="navBooking" onclick="switchView('booking')">Booking</div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span class="sync-badge" id="syncBadge">🔄 connexion…</span>
@@ -99,7 +100,7 @@
       <div class="hero">
         <div>
           <h1>Calendrier</h1>
-          <p id="calSub">Toutes les échéances qui te concernent, tous projets confondus, par mois.</p>
+          <p id="calSub">Toutes les échéances qui te concernent pour le projet sélectionné, par mois.</p>
         </div>
       </div>
       <div class="card">
@@ -163,7 +164,43 @@
         <div id="tasksFullList"></div>
       </div>
     </div>
-    <div class="footnote">Base de données partagée (Firebase) — modules Tableau de bord + Rôles + Calendrier + Projets + Tâches</div>
+    <div id="view-booking" class="view">
+      <div class="hero">
+        <div>
+          <h1>Booking</h1>
+          <p>Le programme et l'emploi du temps de l'artiste — événements déjà faits et à venir.</p>
+        </div>
+      </div>
+      <div class="card">
+        <h2>+ Nouvel événement</h2>
+        <form id="newBookingForm" class="new-project-form">
+          <input type="text" id="bkTitle" placeholder="Titre (ex. Concert Zénith)" required>
+          <select id="bkType">
+            <option value="Concert">Concert</option>
+            <option value="Interview">Interview</option>
+            <option value="Répétition">Répétition</option>
+            <option value="Session studio">Session studio</option>
+            <option value="Shooting">Shooting</option>
+            <option value="Réunion">Réunion</option>
+            <option value="Autre">Autre</option>
+          </select>
+          <input type="date" id="bkDate" required>
+          <input type="time" id="bkTime">
+          <textarea id="bkNotes" placeholder="Détails, ce qu'il y aura à faire…" rows="2"></textarea>
+          <button type="submit" class="cta-inline">Ajouter à l'agenda</button>
+        </form>
+        <p class="form-hint">L'artiste renseigne lui-même son programme : date, heure, type d'intervention et ce qu'il aura à faire.</p>
+      </div>
+      <div class="card">
+        <h2>À venir</h2>
+        <div id="bookingUpcomingList"></div>
+      </div>
+      <div class="card">
+        <h2>Passés / terminés</h2>
+        <div id="bookingPastList"></div>
+      </div>
+    </div>
+    <div class="footnote">Base de données partagée (Firebase) — modules Tableau de bord + Rôles + Calendrier + Projets + Tâches + Booking</div>
   </div>
   </div>
   <script src="app.js"></script>
