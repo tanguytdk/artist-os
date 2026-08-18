@@ -64,8 +64,8 @@ function seedShared(){
       {time:'Hier', text:'📅 Shooting pochette prévu demain.'},
     ],
     bookings: [
-      {id:'bk1', title:'Interview radio', type:'Interview', date:d(2), time:'14:00', notes:'Prévoir visuel pochette et bio à jour.', status:'à venir'},
-      {id:'bk2', title:'Répétition avant clip', type:'Répétition', date:d(-3), time:'10:00', notes:'Studio B, avec danseurs.', status:'terminé'},
+      {id:'bk1', title:'Interview radio', type:'Interview', confirmation:'confirmé', date:d(2), time:'14:00', location:'Studio RFI, Paris', contact:'Aïcha K. – 06 11 22 33 44', notes:'Prévoir visuel pochette et bio à jour.', status:'à venir'},
+      {id:'bk2', title:'Répétition avant clip', type:'Répétition', confirmation:'confirmé', date:d(-3), time:'10:00', location:'Studio B', contact:'', notes:'Studio B, avec danseurs.', status:'terminé'},
     ],
     artistProfile: defaultArtistProfile()
   };
@@ -813,6 +813,7 @@ document.getElementById('newTaskForm').addEventListener('submit', (e) => {
 /* ============ BOOKING (agenda de l'artiste) ============ */
 function bookingById(id){ return DATA.bookings.find(b=>b.id===id); }
 function bookingStatusInfo(b){
+  if(b.confirmation === 'annulé') return {label:'Annulé', cls:'blocked'};
   if(b.status === 'terminé') return {label:'Terminé', cls:'done'};
   const n = daysUntil(b.date);
   if(n < 0) return {label:'Passé (non marqué terminé)', cls:'late'};
@@ -820,19 +821,32 @@ function bookingStatusInfo(b){
   if(n === 1) return {label:'Demain', cls:'upcoming'};
   return {label:`Dans ${n} j`, cls:'upcoming'};
 }
+function confirmationTag(b){
+  const c = b.confirmation || 'confirmé';
+  if(c === 'annulé') return `<span class="booking-confirm-tag cancelled">Annulé</span>`;
+  if(c === 'option') return `<span class="booking-confirm-tag option">En option</span>`;
+  return `<span class="booking-confirm-tag confirmed">Confirmé</span>`;
+}
 function bookingRowHtml(b){
   const info = bookingStatusInfo(b);
   const timeStr = b.time ? ` · ${b.time}` : '';
+  const locationStr = b.location ? ` · 📍 ${b.location}` : '';
+  const contactStr = b.contact ? ` · ☎️ ${b.contact}` : '';
   const dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'});
   return `
     <div class="task">
       <span class="task-dot ${info.cls}"></span>
       <div class="task-body">
-        <div class="task-title">${b.title} <span class="task-project-tag">${b.type}</span></div>
-        <div class="task-sub">${dateStr}${timeStr} · ${info.label}</div>
+        <div class="task-title">${b.title} <span class="task-project-tag">${b.type}</span>${confirmationTag(b)}</div>
+        <div class="task-sub">${dateStr}${timeStr}${locationStr}${contactStr} · ${info.label}</div>
         ${b.notes ? `<div class="task-block-reason" style="color:var(--muted);">${b.notes}</div>` : ''}
       </div>
-      <select onchange="changeBookingStatus('${b.id}', this.value)">
+      <select onchange="changeBookingConfirmation('${b.id}', this.value)" title="Statut de confirmation">
+        <option value="confirmé" ${(b.confirmation||'confirmé')==='confirmé'?'selected':''}>Confirmé</option>
+        <option value="option" ${b.confirmation==='option'?'selected':''}>En option</option>
+        <option value="annulé" ${b.confirmation==='annulé'?'selected':''}>Annulé</option>
+      </select>
+      <select onchange="changeBookingStatus('${b.id}', this.value)" title="Statut de l'événement">
         <option value="à venir" ${b.status!=='terminé'?'selected':''}>à venir</option>
         <option value="terminé" ${b.status==='terminé'?'selected':''}>terminé</option>
       </select>
@@ -856,23 +870,41 @@ function changeBookingStatus(id, status){
   renderBookingList();
 }
 window.changeBookingStatus = changeBookingStatus;
+function changeBookingConfirmation(id, value){
+  const b = bookingById(id);
+  if(!b) return;
+  b.confirmation = value;
+  saveData(DATA);
+  renderBookingList();
+}
+window.changeBookingConfirmation = changeBookingConfirmation;
 function editBooking(id){
   const b = bookingById(id);
   if(!b) return;
   const newTitle = prompt('Titre :', b.title);
   if(newTitle === null) return;
+  const newLocation = prompt('Lieu :', b.location || '');
+  if(newLocation === null) return;
   const newDate = prompt('Date (AAAA-MM-JJ) :', b.date);
   if(newDate === null) return;
   const newTime = prompt('Heure (HH:MM, laisse vide si aucune) :', b.time || '');
   if(newTime === null) return;
+  const newContact = prompt('Contact sur place (nom, téléphone) :', b.contact || '');
+  if(newContact === null) return;
+  const newConfirmation = prompt('Statut de confirmation (confirmé / option / annulé) :', b.confirmation || 'confirmé');
+  if(newConfirmation === null) return;
   const newNotes = prompt('Détails / ce qu\'il y aura à faire :', b.notes || '');
   if(newNotes === null) return;
   if(newTitle.trim()) b.title = newTitle.trim();
+  b.location = newLocation.trim();
   if(/^\d{4}-\d{2}-\d{2}$/.test(newDate.trim())) b.date = newDate.trim();
   else if(newDate.trim() !== b.date){
     alert('Format de date invalide, la date n\'a pas été changée (utilise AAAA-MM-JJ).');
   }
   b.time = newTime.trim();
+  b.contact = newContact.trim();
+  const conf = newConfirmation.trim().toLowerCase();
+  b.confirmation = ['confirmé','option','annulé'].includes(conf) ? conf : (b.confirmation || 'confirmé');
   b.notes = newNotes.trim();
   saveData(DATA);
   renderBookingList();
@@ -890,13 +922,16 @@ window.deleteBooking = deleteBooking;
 document.getElementById('newBookingForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const title = document.getElementById('bkTitle').value.trim();
+  const location = document.getElementById('bkLocation').value.trim();
   const type = document.getElementById('bkType').value;
+  const confirmation = document.getElementById('bkConfirmation').value;
   const date = document.getElementById('bkDate').value;
   const time = document.getElementById('bkTime').value;
+  const contact = document.getElementById('bkContact').value.trim();
   const notes = document.getElementById('bkNotes').value.trim();
-  if(!title || !date) return;
+  if(!title || !date || !location) return;
   const id = `bk_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,6)}`;
-  DATA.bookings.push({ id, title, type, date, time, notes, status: 'à venir' });
+  DATA.bookings.push({ id, title, location, type, confirmation, date, time, contact, notes, status: 'à venir' });
   saveData(DATA);
   e.target.reset();
   renderBookingList();
@@ -1018,6 +1053,7 @@ function downloadBookingPDF(){
       y = 20;
     }
     const isDone = b.status === 'terminé';
+    const isCancelled = b.confirmation === 'annulé';
     const dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric'});
     if(i % 2 === 0){
       doc.setFillColor(241,240,250);
@@ -1039,8 +1075,22 @@ function downloadBookingPDF(){
     doc.setTextColor(...dark);
     doc.text(b.title || '', 90, y);
     doc.setFontSize(8);
-    doc.setTextColor(...muted);
-    doc.text(isDone ? 'Terminé' : 'À venir', pageWidth - 30, y);
+    doc.setTextColor(...(isCancelled ? [239,90,90] : muted));
+    const confirmLabel = isCancelled ? 'Annulé' : (b.confirmation === 'option' ? 'En option' : 'Confirmé');
+    doc.text(confirmLabel, pageWidth - 34, y);
+
+    if(b.location){
+      y += 5;
+      doc.setFontSize(8.5);
+      doc.setTextColor(...muted);
+      doc.text(`Lieu : ${b.location}`, 14, y);
+    }
+    if(b.contact){
+      y += 5;
+      doc.setFontSize(8.5);
+      doc.setTextColor(...muted);
+      doc.text(`Contact : ${b.contact}`, 14, y);
+    }
     if(b.notes){
       y += 5;
       doc.setFontSize(8.5);
