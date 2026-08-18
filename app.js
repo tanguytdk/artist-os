@@ -26,7 +26,7 @@ const ROLES = [
 ];
 const LOCAL_KEY = 'artistos_local_v1';
 function defaultArtistProfile(){
-  return { name:'Tanguy DJE RoiStar', genre:'', bio:'', manager:'', phone:'', email:'' };
+  return { name:'Tanguy DJE RoiStar', genre:'', bio:'', manager:'', phone:'', email:'', headerPhoto:'' };
 }
 function seedShared(){
   const today = new Date();
@@ -948,6 +948,7 @@ function renderArtistProfile(){
     ['Manager / Contact', p.manager],
     ['Téléphone', p.phone],
     ['Email', p.email],
+    ['Photo d\'en-tête (PDF)', p.headerPhoto],
   ];
   el.innerHTML = rows.map(([label, val]) => `<div class="row"><b>${label}</b><span>${val ? val : 'Non renseigné'}</span></div>`).join('');
 }
@@ -965,16 +966,64 @@ function editArtistProfile(){
   if(phone === null) return;
   const email = prompt('Email :', p.email);
   if(email === null) return;
+  const headerPhoto = prompt('URL de la photo d\'en-tête pour le PDF (lien direct vers une image .jpg/.png hébergée en ligne, laisse vide pour aucune) :', p.headerPhoto || '');
+  if(headerPhoto === null) return;
   DATA.artistProfile = {
     name: name.trim(), genre: genre.trim(), bio: bio.trim(),
-    manager: manager.trim(), phone: phone.trim(), email: email.trim()
+    manager: manager.trim(), phone: phone.trim(), email: email.trim(),
+    headerPhoto: headerPhoto.trim()
   };
   saveData(DATA);
   renderArtistProfile();
 }
 window.editArtistProfile = editArtistProfile;
 
-function downloadBookingPDF(){
+function loadImageAsDataURL(url){
+  return fetch(url, {mode:'cors'}).then(res => {
+    if(!res.ok) throw new Error('Réponse HTTP ' + res.status);
+    return res.blob();
+  }).then(blob => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Lecture du fichier impossible'));
+    reader.readAsDataURL(blob);
+  }));
+}
+function coverCropImage(dataUrl, targetWpx, targetHpx){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try{
+        const canvas = document.createElement('canvas');
+        canvas.width = targetWpx;
+        canvas.height = targetHpx;
+        const ctx = canvas.getContext('2d');
+        const srcRatio = img.naturalWidth / img.naturalHeight;
+        const dstRatio = targetWpx / targetHpx;
+        let sx, sy, sw, sh;
+        if(srcRatio > dstRatio){
+          sh = img.naturalHeight; sw = sh * dstRatio; sx = (img.naturalWidth - sw) / 2; sy = 0;
+        } else {
+          sw = img.naturalWidth; sh = sw / dstRatio; sx = 0; sy = (img.naturalHeight - sh) / 2;
+        }
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetWpx, targetHpx);
+        resolve(canvas.toDataURL('image/jpeg', 0.87));
+      }catch(e){ reject(e); }
+    };
+    img.onerror = () => reject(new Error('Image illisible'));
+    img.src = dataUrl;
+  });
+}
+async function downloadBookingPDF(){
+  try{
+    await generateBookingPDF();
+  }catch(err){
+    console.error('Erreur lors de la génération du PDF :', err);
+    alert('Une erreur est survenue pendant la génération du PDF. Regarde la console (F12) pour le détail.');
+  }
+}
+window.downloadBookingPDF = downloadBookingPDF;
+async function generateBookingPDF(){
   if(!window.jspdf){
     alert('Le générateur de PDF n\'a pas pu se charger. Vérifie ta connexion et réessaie.');
     return;
@@ -985,39 +1034,88 @@ function downloadBookingPDF(){
   const pageHeight = doc.internal.pageSize.getHeight();
   const p = Object.assign(defaultArtistProfile(), DATA.artistProfile || {});
 
-  /* ---------- Palette (identique à celle du site) ---------- */
+  /* ---------- Palette (thème sombre violet, façon affiche) ---------- */
   const violet = [139,92,246];
-  const violetDark = [104,58,214];
+  const violetLight = [199,168,255];
   const blue = [91,157,249];
-  const dark = [33,30,48];
-  const muted = [117,113,140];
-  const surfaceSoft = [241,240,250];
-  const border = [222,214,247];
+  const bgDark = [23,17,41];
+  const boxBg = [35,27,58];
+  const boxBorder = [92,74,138];
   const white = [255,255,255];
-  const green = [32,178,108];
-  const orange = [245,165,36];
-  const red = [239,90,90];
+  const mutedLight = [186,176,214];
+  const green = [58,209,140];
+  const orange = [252,186,74];
+  const red = [255,120,120];
 
   const MARGIN_L = 14;
-  const SIDEBAR_W = 15; // largeur réservée au grand mot "PROGRAMME" vertical
+  const SIDEBAR_W = 20; // largeur réservée au grand mot "PROGRAMME" vertical
   const CONTENT_X = MARGIN_L + SIDEBAR_W;
   const CONTENT_R = pageWidth - 12;
   const FOOTER_H = 12;
-  const BOTTOM_LIMIT = pageHeight - FOOTER_H - 12;
+  const FOOTER_TOP = pageHeight - FOOTER_H - 8;
+  const BOTTOM_LIMIT = FOOTER_TOP - 4;
+  const HEADER_H = 46;
 
   function lerp(a,b,t){ return a + (b-a)*t; }
   function lerpColor(c1,c2,t){ return [lerp(c1[0],c2[0],t), lerp(c1[1],c2[1],t), lerp(c1[2],c2[2],t)]; }
 
-  /* ---------- En-tête (bandeau dégradé violet -> bleu, façon identité du site) ---------- */
-  function drawHeader(){
-    const headerH = 46;
-    const bands = 70;
-    for(let i=0;i<bands;i++){
-      const t = i/(bands-1);
-      const [r,g,b] = lerpColor(violet, blue, t);
-      doc.setFillColor(r,g,b);
-      doc.rect(0, (headerH/bands)*i, pageWidth, (headerH/bands)+0.5, 'F');
+  function fillPageBg(){
+    doc.setFillColor(...bgDark);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  }
+
+  /* ---------- Photo d'en-tête (si renseignée dans le profil) ---------- */
+  let headerPhotoData = null;
+  if(p.headerPhoto){
+    try{
+      const rawDataUrl = await loadImageAsDataURL(p.headerPhoto);
+      // rendu ~150dpi pour un bon compromis qualité / poids de fichier
+      const pxPerMm = 150 / 25.4;
+      const cropped = await coverCropImage(rawDataUrl, Math.round(pageWidth * pxPerMm), Math.round(HEADER_H * pxPerMm));
+      headerPhotoData = cropped;
+    }catch(err){
+      console.warn('Photo d\'en-tête introuvable ou non chargeable, utilisation du dégradé par défaut :', err);
+      headerPhotoData = null;
     }
+  }
+
+  /* ---------- En-tête : photo (si disponible) ou dégradé violet -> bleu, + voile sombre pour la lisibilité ---------- */
+  function drawHeader(){
+    if(headerPhotoData){
+      try{
+        doc.addImage(headerPhotoData, 'JPEG', 0, 0, pageWidth, HEADER_H, undefined, 'FAST');
+      }catch(e){
+        headerPhotoData = null;
+      }
+    }
+    if(!headerPhotoData){
+      const bands = 70;
+      for(let i=0;i<bands;i++){
+        const t = i/(bands-1);
+        const [r,g,b] = lerpColor(violet, blue, t);
+        doc.setFillColor(r,g,b);
+        doc.rect(0, (HEADER_H/bands)*i, pageWidth, (HEADER_H/bands)+0.5, 'F');
+      }
+    } else {
+      // voile violet sombre sur la photo pour que le texte reste lisible
+      let veiled = false;
+      try{
+        doc.saveGraphicsState();
+        doc.setGState(new doc.GState({opacity:0.52}));
+        doc.setFillColor(18,13,32);
+        doc.rect(0, 0, pageWidth, HEADER_H, 'F');
+        doc.restoreGraphicsState();
+        veiled = true;
+      }catch(e){
+        veiled = false;
+      }
+      if(!veiled){
+        // secours si l'opacité n'est pas disponible : plaque pleine derrière le nom uniquement
+        doc.setFillColor(18,13,32);
+        doc.roundedRect(MARGIN_L - 3, 20, Math.min(pageWidth - 2*MARGIN_L + 6, 150), 22, 2, 2, 'F');
+      }
+    }
+
     doc.setFillColor(...white);
     doc.circle(17, 13.5, 1.7, 'F');
     doc.setTextColor(...white);
@@ -1036,7 +1134,7 @@ function downloadBookingPDF(){
     const yearStr = String(new Date().getFullYear());
     doc.setFillColor(...white);
     doc.roundedRect(pageWidth - 36, 8, 22, 13, 3, 3, 'F');
-    doc.setTextColor(...violetDark);
+    doc.setTextColor(...violet);
     doc.setFont('helvetica','bold');
     doc.setFontSize(14);
     doc.text(yearStr, pageWidth - 25, 17, {align:'center'});
@@ -1046,14 +1144,15 @@ function downloadBookingPDF(){
     doc.setFontSize(7.5);
     doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}`, pageWidth - 12, 27, {align:'right'});
 
-    return headerH;
+    return HEADER_H;
   }
 
+  fillPageBg();
   const pageContentTop = {1: 0};
   let y = drawHeader() + 12;
 
   /* ---------- Profil (compact, une seule ligne + bio courte) ---------- */
-  doc.setTextColor(...dark);
+  doc.setTextColor(...white);
   doc.setFont('helvetica','bold');
   doc.setFontSize(10.5);
   doc.text('PROFIL', CONTENT_X, y);
@@ -1067,21 +1166,21 @@ function downloadBookingPDF(){
   if(profileBits.length){
     doc.setFont('helvetica','normal');
     doc.setFontSize(9);
-    doc.setTextColor(...muted);
+    doc.setTextColor(...mutedLight);
     doc.text(profileBits.join('   ·   '), CONTENT_X, y);
     y += 5.5;
   }
   if(p.bio){
     doc.setFont('helvetica','normal');
     doc.setFontSize(9);
-    doc.setTextColor(...dark);
+    doc.setTextColor(...white);
     const bioLines = doc.splitTextToSize(p.bio, CONTENT_R - CONTENT_X);
     doc.text(bioLines, CONTENT_X, y);
     y += bioLines.length * 4.6 + 2;
   }
   y += 5;
-  doc.setDrawColor(...surfaceSoft);
-  doc.setLineWidth(0.4);
+  doc.setDrawColor(...boxBorder);
+  doc.setLineWidth(0.3);
   doc.line(CONTENT_X, y, CONTENT_R, y);
   y += 8;
 
@@ -1092,6 +1191,7 @@ function downloadBookingPDF(){
     if(y + needed > BOTTOM_LIMIT){
       doc.addPage();
       const pageNum = doc.internal.getNumberOfPages();
+      fillPageBg();
       y = 18;
       pageContentTop[pageNum] = y;
       return true;
@@ -1104,15 +1204,16 @@ function downloadBookingPDF(){
 
   doc.setFont('helvetica','bold');
   doc.setFontSize(12.5);
-  doc.setTextColor(...dark);
+  doc.setTextColor(...white);
   doc.text('PROGRAMME', CONTENT_X, y);
   y += 9;
 
   if(!events.length){
     doc.setFont('helvetica','normal');
     doc.setFontSize(9.5);
-    doc.setTextColor(...muted);
+    doc.setTextColor(...mutedLight);
     doc.text('Aucun événement enregistré pour le moment.', CONTENT_X, y);
+    y += 8;
   }
 
   const groups = [];
@@ -1123,12 +1224,12 @@ function downloadBookingPDF(){
   });
 
   groups.forEach(group => {
-    ensureSpace(16);
+    ensureSpace(45); // évite qu'un en-tête de date se retrouve seul en bas de page
     const dLabel = new Date(group.date + 'T00:00:00').toLocaleDateString('fr-FR', {weekday:'long', day:'2-digit', month:'long', year:'numeric'});
     const dLabelCap = dLabel.charAt(0).toUpperCase() + dLabel.slice(1);
     doc.setFont('helvetica','bold');
     doc.setFontSize(11);
-    doc.setTextColor(...violetDark);
+    doc.setTextColor(...violetLight);
     doc.text(dLabelCap, CONTENT_X, y);
     y += 7;
 
@@ -1137,29 +1238,9 @@ function downloadBookingPDF(){
       const isDone = b.status === 'terminé';
       const confirmColor = isCancelled ? red : (b.confirmation === 'option' ? orange : green);
       const confirmLabel = isCancelled ? 'ANNULÉ' : (b.confirmation === 'option' ? 'EN OPTION' : 'CONFIRMÉ');
-      const eff = bookingStatusInfo(b);
-      const accentColor = isCancelled ? muted : (isDone ? green : (statusDotClass(eff.cls) ? blue : blue));
+      const accentColor = isCancelled ? mutedLight : (isDone ? green : blue);
 
-      /* -- ligne pilule horaire + statut de confirmation -- */
       const pillH = 7;
-      ensureSpace(pillH + 4);
-      if(b.time){
-        const pillW = doc.getTextWidth(b.time) + 12;
-        doc.setDrawColor(...violet);
-        doc.setLineWidth(0.5);
-        doc.roundedRect(CONTENT_X, y, pillW, pillH, pillH/2, pillH/2, 'S');
-        doc.setTextColor(...violetDark);
-        doc.setFont('helvetica','bold');
-        doc.setFontSize(9);
-        doc.text(b.time, CONTENT_X + pillW/2, y + pillH/2 + 1.2, {align:'center'});
-      }
-      doc.setFont('helvetica','bold');
-      doc.setFontSize(7.5);
-      doc.setTextColor(...confirmColor);
-      doc.text(confirmLabel, CONTENT_R, y + pillH/2 + 1, {align:'right'});
-      y += pillH + 2.5;
-
-      /* -- calcul du contenu de la boîte -- */
       const boxX = CONTENT_X;
       const boxW = CONTENT_R - CONTENT_X;
       const innerX = boxX + 5;
@@ -1170,26 +1251,42 @@ function downloadBookingPDF(){
       const contactLine = b.contact ? `Contact : ${b.contact}` : null;
       const noteLines = b.notes ? doc.splitTextToSize(`Notes : ${b.notes}`, innerW) : [];
 
-      let boxH = 5 + 6; // padding haut + ligne titre
+      let boxH = 5 + 6;
       if(locLine) boxH += 4.6;
       if(contactLine) boxH += 4.6;
       if(noteLines.length) boxH += noteLines.length * 4.2;
-      boxH += 4; // padding bas
+      boxH += 4;
 
-      ensureSpace(boxH + 5);
+      // on garde la pilule horaire et sa boîte ensemble sur la même page
+      ensureSpace(pillH + 2.5 + boxH + 6);
 
-      doc.setFillColor(...(isCancelled ? [248,247,252] : white));
-      doc.setDrawColor(...border);
-      doc.setLineWidth(0.4);
+      if(b.time){
+        const pillW = doc.getTextWidth(b.time) + 12;
+        doc.setDrawColor(...violetLight);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(CONTENT_X, y, pillW, pillH, pillH/2, pillH/2, 'S');
+        doc.setTextColor(...violetLight);
+        doc.setFont('helvetica','bold');
+        doc.setFontSize(9);
+        doc.text(b.time, CONTENT_X + pillW/2, y + pillH/2 + 1.2, {align:'center'});
+      }
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...confirmColor);
+      doc.text(confirmLabel, CONTENT_R, y + pillH/2 + 1, {align:'right'});
+      y += pillH + 2.5;
+
+      doc.setFillColor(...boxBg);
+      doc.setDrawColor(...boxBorder);
+      doc.setLineWidth(0.35);
       doc.roundedRect(boxX, y, boxW, boxH, 2.5, 2.5, 'FD');
-      // liseré de statut à gauche de la boîte
       doc.setFillColor(...accentColor);
       doc.roundedRect(boxX, y, 1.6, boxH, 0.8, 0.8, 'F');
 
       let ty = y + 7;
       doc.setFont('helvetica','bold');
       doc.setFontSize(10);
-      doc.setTextColor(...(isCancelled ? muted : dark));
+      doc.setTextColor(...(isCancelled ? mutedLight : white));
       doc.text(b.title || '', innerX, ty);
       const titleW = doc.getTextWidth(b.title || '');
       if(b.type){
@@ -1207,11 +1304,11 @@ function downloadBookingPDF(){
       ty += 5;
       doc.setFont('helvetica','normal');
       doc.setFontSize(8.3);
-      doc.setTextColor(...muted);
+      doc.setTextColor(...mutedLight);
       if(locLine){ doc.text(locLine, innerX, ty); ty += 4.6; }
       if(contactLine){ doc.text(contactLine, innerX, ty); ty += 4.6; }
       if(noteLines.length){
-        doc.setTextColor(...dark);
+        doc.setTextColor(...white);
         doc.text(noteLines, innerX, ty);
         ty += noteLines.length * 4.2;
       }
@@ -1221,17 +1318,46 @@ function downloadBookingPDF(){
     y += 2;
   });
 
-  /* ---------- Mot vertical "PROGRAMME" + pied de page violet, sur chaque page ---------- */
+  /* ---------- Mot vertical "PROGRAMME" (remplit toute la hauteur disponible de chaque page) + pied de page violet ----------
+     Astuce : on garde une taille de police FIXE (donc une épaisseur de lettres qui ne déborde jamais de la colonne
+     latérale ni du bord de page), et on étire le mot jusqu'à la hauteur disponible en espaçant les lettres
+     (charSpace), plutôt qu'en grossissant la police — ce qui évite tout risque de texte coupé. */
   const pageCount = doc.internal.getNumberOfPages();
+  const SIDEBAR_WORD = 'PROGRAMME';
+  const SIDEBAR_X = 17; // ancrage horizontal du mot, à l'intérieur de la colonne latérale
+  const SIDEBAR_FONT = 36; // taille fixe et sûre (épaisseur des lettres ≈ 12-13mm, tient dans SIDEBAR_W)
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(SIDEBAR_FONT);
+  const naturalLen = doc.getTextWidth(SIDEBAR_WORD); // longueur du mot à sa taille normale, avant étirement
+
   for(let i = 1; i <= pageCount; i++){
     doc.setPage(i);
 
-    doc.setTextColor(...violet);
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(32);
-    doc.text('PROGRAMME', 9, pageHeight - 22, {angle:90});
+    const topY = pageContentTop[i] !== undefined ? pageContentTop[i] : 18;
+    const bottomY = BOTTOM_LIMIT;
+    const available = Math.max(bottomY - topY, 30);
+    const targetLen = available * 0.92;
 
-    const barY = pageHeight - FOOTER_H - 4;
+    let fontSize = SIDEBAR_FONT;
+    let renderedLen = naturalLen;
+    let charSpace = 0;
+    if(naturalLen < targetLen){
+      // on étire le mot par espacement des lettres pour occuper la hauteur disponible
+      charSpace = (targetLen - naturalLen) / (SIDEBAR_WORD.length - 1);
+      renderedLen = targetLen;
+    } else if(naturalLen > targetLen){
+      // page très chargée : peu de place -> on réduit la police (jamais l'inverse, pour ne jamais déborder)
+      fontSize = SIDEBAR_FONT * (targetLen / naturalLen);
+      renderedLen = targetLen;
+    }
+    const startY = topY + (available + renderedLen) / 2;
+
+    doc.setTextColor(...violetLight);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(fontSize);
+    doc.text(SIDEBAR_WORD, SIDEBAR_X, Math.min(startY, bottomY), {angle:90, charSpace: charSpace});
+
+    const barY = FOOTER_TOP;
     doc.setFillColor(...violet);
     doc.roundedRect(CONTENT_X, barY, CONTENT_R - CONTENT_X, FOOTER_H, FOOTER_H/2, FOOTER_H/2, 'F');
     doc.setTextColor(...white);
@@ -1247,6 +1373,5 @@ function downloadBookingPDF(){
   const filename = `programme-${slugify(p.name || 'artiste')}-${new Date().toISOString().slice(0,10)}.pdf`;
   doc.save(filename);
 }
-window.downloadBookingPDF = downloadBookingPDF;
 /* ============ INIT ============ */
 startSync();
