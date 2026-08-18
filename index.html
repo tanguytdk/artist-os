@@ -176,6 +176,7 @@
         <h2>+ Nouvel événement</h2>
         <form id="newBookingForm" class="new-project-form">
           <input type="text" id="bkTitle" placeholder="Titre (ex. Concert Zénith)" required>
+          <input type="text" id="bkLocation" placeholder="Lieu (ex. Zénith, Paris)" required>
           <select id="bkType">
             <option value="Concert">Concert</option>
             <option value="Interview">Interview</option>
@@ -185,12 +186,18 @@
             <option value="Réunion">Réunion</option>
             <option value="Autre">Autre</option>
           </select>
+          <select id="bkConfirmation">
+            <option value="confirmé">Confirmé</option>
+            <option value="option">En option</option>
+            <option value="annulé">Annulé</option>
+          </select>
           <input type="date" id="bkDate" required>
           <input type="time" id="bkTime">
+          <input type="text" id="bkContact" placeholder="Contact sur place (nom, téléphone)">
           <textarea id="bkNotes" placeholder="Détails, ce qu'il y aura à faire…" rows="2"></textarea>
           <button type="submit" class="cta-inline">Ajouter à l'agenda</button>
         </form>
-        <p class="form-hint">L'artiste renseigne lui-même son programme : date, heure, type d'intervention et ce qu'il aura à faire.</p>
+        <p class="form-hint">L'artiste renseigne lui-même son programme : lieu, date, heure, type d'intervention, statut de confirmation, contact sur place et ce qu'il aura à faire.</p>
       </div>
       <div class="card">
         <h2>À venir</h2>
@@ -207,7 +214,7 @@
           <button class="icon-btn wide" onclick="editArtistProfile()">✎ Modifier le profil</button>
           <button class="cta-inline" onclick="downloadBookingPDF()">⬇️ Télécharger le programme complet en PDF</button>
         </div>
-        <p class="form-hint">Le PDF reprend le profil ci-dessus ainsi que tous les événements du booking (à venir et terminés), triés par date.</p>
+        <p class="form-hint">Le PDF reprend le profil ci-dessus ainsi que tous les événements du booking (à venir et terminés), triés par date, avec lieu, contact et statut de confirmation.</p>
       </div>
     </div>
     <div class="footnote">Base de données partagée (Firebase) — modules Tableau de bord + Rôles + Calendrier + Projets + Tâches + Booking</div>
