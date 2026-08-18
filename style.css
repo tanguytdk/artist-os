@@ -198,3 +198,11 @@ h1,h2,h3,.brand{font-family:'Sora',sans-serif;}
 .login-card input:focus{outline:2px solid var(--violet);}
 .login-error{color:var(--red);font-size:12.5px;min-height:16px;}
 .login-btn{width:100%;text-align:center;margin-top:4px;padding:13px 18px;}
+.new-project-form input[type="time"]{
+  border:1px solid var(--border);border-radius:10px;padding:9px 12px;font-size:13px;font-family:'Inter',sans-serif;
+  background:var(--surface-soft);color:var(--text);
+}
+.new-project-form textarea{
+  width:100%;flex:1 1 100%;border:1px solid var(--border);border-radius:10px;padding:9px 12px;font-size:13px;
+  font-family:'Inter',sans-serif;background:var(--surface-soft);color:var(--text);resize:vertical;min-height:60px;
+}
