@@ -88,6 +88,7 @@ function saveLocalPrefs(){
 let DATA = Object.assign({ projects: [], tasks: [], notifications: [], bookings: [], artistProfile: defaultArtistProfile(), tasksRoleFilter: false, fullProgramRoleFilter: false }, loadLocalPrefs());
 let dataReady = false;
 let projectSelected = false;
+let roleChosen = false; // se réinitialise à chaque chargement de page / reconnexion
 let roleUnlocked = false; // se réinitialise à chaque chargement de page
 function saveData(data){
   saveLocalPrefs();
@@ -112,30 +113,101 @@ function setSyncBadge(state){
   else { el.textContent = '🔄 connexion…'; el.className = 'sync-badge'; }
 }
 /* ============ CONNEXION ============ */
-function showLoginScreen(){
+function hideAllGateScreens(){
   const login = document.getElementById('loginScreen');
-  const projSel = document.getElementById('projectSelectScreen');
-  const appRoot = document.getElementById('appRoot');
-  if(login) login.style.display = 'flex';
-  if(projSel) projSel.style.display = 'none';
-  if(appRoot) appRoot.style.display = 'none';
-}
-function showProjectSelectScreen(){
-  const login = document.getElementById('loginScreen');
+  const roleSel = document.getElementById('roleSelectScreen');
   const projSel = document.getElementById('projectSelectScreen');
   const appRoot = document.getElementById('appRoot');
   if(login) login.style.display = 'none';
-  if(projSel) projSel.style.display = 'flex';
+  if(roleSel) roleSel.style.display = 'none';
+  if(projSel) projSel.style.display = 'none';
   if(appRoot) appRoot.style.display = 'none';
+}
+function showLoginScreen(){
+  hideAllGateScreens();
+  const login = document.getElementById('loginScreen');
+  if(login) login.style.display = 'flex';
+}
+function showRoleSelectScreen(){
+  hideAllGateScreens();
+  const roleSel = document.getElementById('roleSelectScreen');
+  if(roleSel) roleSel.style.display = 'flex';
+  renderRoleSelectScreen();
+}
+function showProjectSelectScreen(){
+  hideAllGateScreens();
+  const projSel = document.getElementById('projectSelectScreen');
+  if(projSel) projSel.style.display = 'flex';
   renderProjectSelectDropdown();
 }
 function showAppRoot(){
-  const login = document.getElementById('loginScreen');
-  const projSel = document.getElementById('projectSelectScreen');
+  hideAllGateScreens();
   const appRoot = document.getElementById('appRoot');
-  if(login) login.style.display = 'none';
-  if(projSel) projSel.style.display = 'none';
   if(appRoot) appRoot.style.display = 'block';
+}
+let pendingProtectedRoleId = null;
+function renderRoleSelectScreen(){
+  const grid = document.getElementById('roleSelectGrid');
+  if(grid){
+    grid.innerHTML = ROLES.map(r => `<button type="button" class="role-chip" onclick="chooseInitialRole('${r.id}')">
+      <span class="role-chip-icon">${r.icon}</span>
+      <span class="role-chip-label">${r.label}</span>
+    </button>`).join('');
+  }
+  cancelRolePinEntry();
+}
+function chooseInitialRole(roleId){
+  if(PROTECTED_ROLES.includes(roleId) && !roleUnlocked){
+    pendingProtectedRoleId = roleId;
+    const form = document.getElementById('rolePinForm');
+    const err = document.getElementById('rolePinError');
+    const input = document.getElementById('rolePinInput');
+    if(err) err.textContent = '';
+    if(input) input.value = '';
+    if(form) form.style.display = 'flex';
+    if(input) input.focus();
+    return;
+  }
+  finalizeRoleChoice(roleId);
+}
+window.chooseInitialRole = chooseInitialRole;
+function confirmRolePin(){
+  const p = Object.assign(defaultArtistProfile(), DATA.artistProfile || {});
+  const input = document.getElementById('rolePinInput');
+  const err = document.getElementById('rolePinError');
+  const code = input ? input.value.trim() : '';
+  if(!pendingProtectedRoleId || code !== (p.rolePin || '0000')){
+    if(err) err.textContent = 'Code incorrect.';
+    if(input){ input.value = ''; input.focus(); }
+    return;
+  }
+  roleUnlocked = true;
+  const roleId = pendingProtectedRoleId;
+  finalizeRoleChoice(roleId);
+}
+window.confirmRolePin = confirmRolePin;
+function cancelRolePinEntry(){
+  pendingProtectedRoleId = null;
+  const form = document.getElementById('rolePinForm');
+  const err = document.getElementById('rolePinError');
+  const input = document.getElementById('rolePinInput');
+  if(form) form.style.display = 'none';
+  if(err) err.textContent = '';
+  if(input) input.value = '';
+}
+window.cancelRolePinEntry = cancelRolePinEntry;
+function finalizeRoleChoice(roleId){
+  DATA.currentRole = roleId;
+  saveLocalPrefs();
+  roleChosen = true;
+  pendingProtectedRoleId = null;
+  if(!projectSelected){
+    showProjectSelectScreen();
+  } else {
+    showAppRoot();
+    switchView('dashboard');
+    renderAll();
+  }
 }
 function renderProjectSelectDropdown(){
   const sel = document.getElementById('projectSelectDropdown');
@@ -216,10 +288,14 @@ function clearInactivityTimer(){
 function startSync(){
   const form = document.getElementById('loginForm');
   if(form) form.addEventListener('submit', handleLogin);
+  const pinForm = document.getElementById('rolePinForm');
+  if(pinForm) pinForm.addEventListener('submit', (e) => { e.preventDefault(); confirmRolePin(); });
   auth.onAuthStateChanged(user => {
     if(!user){
       dataReady = false;
       projectSelected = false;
+      roleChosen = false;
+      roleUnlocked = false;
       clearInactivityTimer();
       showLoginScreen();
       if(loggedOutForInactivity){
@@ -249,7 +325,9 @@ function startSync(){
       DATA.artistProfile = shared.artistProfile || defaultArtistProfile();
       dataReady = true;
       setSyncBadge('ok');
-      if(!projectSelected){
+      if(!roleChosen){
+        showRoleSelectScreen();
+      } else if(!projectSelected){
         showProjectSelectScreen();
       } else {
         showAppRoot();
