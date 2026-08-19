@@ -25,6 +25,16 @@
       <button type="submit" class="cta-inline login-btn" id="loginSubmitBtn">Se connecter</button>
     </form>
   </div>
+  <div id="projectSelectScreen" class="login-screen" style="display:none;">
+    <div class="login-card project-select-card">
+      <div class="login-brand"><span class="dot"></span>Tanguy DJE RoiStar</div>
+      <h2>Choisis ton projet</h2>
+      <p class="login-sub">Sélectionne le projet sur lequel tu veux travailler aujourd'hui. Tu pourras en changer à tout moment depuis l'onglet Projets.</p>
+      <select id="projectSelectDropdown"></select>
+      <div class="login-error" id="projectSelectError"></div>
+      <button type="button" class="cta-inline login-btn" id="projectSelectBtn" onclick="confirmProjectSelection()">Continuer</button>
+    </div>
+  </div>
   <div id="appRoot" style="display:none;">
   <div class="topbar">
     <div class="brand"><span class="dot"></span>Tanguy DJE RoiStar</div>
@@ -34,6 +44,7 @@
       <div class="tab" id="navProjects" onclick="switchView('projects')">Projets</div>
       <div class="tab" id="navTasks" onclick="switchView('tasks')">Tâches</div>
       <div class="tab" id="navBooking" onclick="switchView('booking')">Booking</div>
+      <div class="tab" id="navFullProgram" onclick="switchView('fullprogram')">Programme complet</div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span class="sync-badge" id="syncBadge">🔄 connexion…</span>
@@ -220,7 +231,31 @@
         <p class="form-hint">Deux PDF distincts et téléchargeables séparément : les événements à venir d'un côté, ceux déjà effectués de l'autre — avec le profil (nom, genre, manager/contact), lieu, contact et statut de confirmation.</p>
       </div>
     </div>
-    <div class="footnote">Base de données partagée (Firebase) — modules Tableau de bord + Rôles + Calendrier + Projets + Tâches + Booking</div>
+    <div id="view-fullprogram" class="view">
+      <div class="hero">
+        <div>
+          <h1>Programme complet</h1>
+          <p>Tous les projets et toutes les tâches, tous rôles confondus, réunis dans un seul calendrier.</p>
+        </div>
+        <span class="badge">🗓️ Vue globale</span>
+      </div>
+      <div class="card">
+        <div class="cal-header">
+          <button class="cal-nav" onclick="shiftFullMonth(-1)">‹</button>
+          <div class="cal-month" id="fullCalMonthLabel">—</div>
+          <button class="cal-nav" onclick="shiftFullMonth(1)">›</button>
+        </div>
+        <div class="cal-weekdays">
+          <span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span>
+        </div>
+        <div class="cal-grid" id="fullCalGrid"></div>
+      </div>
+      <div class="card" id="fullCalDayCard" style="display:none;">
+        <h2 id="fullCalDayTitle">—</h2>
+        <div id="fullCalDayTasks"></div>
+      </div>
+    </div>
+    <div class="footnote">Base de données partagée (Firebase) — modules Tableau de bord + Rôles + Calendrier + Projets + Tâches + Booking + Programme complet</div>
   </div>
   </div>
   <script src="app.js"></script>
