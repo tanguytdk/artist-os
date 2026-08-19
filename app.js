@@ -343,7 +343,8 @@ function effectiveStatus(task){
   }
   return task.status;
 }
-function fmtDue(dateStr){
+function fmtDue(dateStr, isDone){
+  if(isDone) return `TERMINÉ`;
   const n = daysUntil(dateStr);
   if(n < 0) return `EN RETARD DE ${Math.abs(n)} J`;
   if(n === 0) return `AUJOURD'HUI`;
@@ -428,7 +429,7 @@ function taskRowHtml(task, opts={}){
       <span class="task-dot ${dotClass}"></span>
       <div class="task-body">
         <div class="task-title">${task.title} ${projectTag}</div>
-        <div class="task-sub">${roleLabel(task.role)} · ${fmtDue(task.due)}</div>
+        <div class="task-sub">${roleLabel(task.role)} · ${fmtDue(task.due, task.status === 'terminé')}</div>
         ${blockReason ? `<div class="task-block-reason">${blockReason}</div>` : ''}
       </div>
       <select onchange="changeStatus('${task.id}', this.value)" ${isBlocked?'disabled title="Débloque d\'abord la tâche dont elle dépend"':''}>
