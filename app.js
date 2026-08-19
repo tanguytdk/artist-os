@@ -40,22 +40,22 @@ function seedShared(){
       {id:'destin', title:'DESTIN', type:'Single', releaseDate:'2026-10-15'}
     ],
     tasks: [
-      {id:'t1', projectId:'destin', title:'Arrangement du morceau', role:'arrangeur', status:'terminé', due:d(-20), dependsOn:[]},
-      {id:'t2', projectId:'destin', title:'Mixage', role:'arrangeur', status:'en retard', due:d(-2), dependsOn:['t1']},
-      {id:'t3', projectId:'destin', title:'Mastering', role:'producteur', status:'à venir', due:d(3), dependsOn:['t2']},
-      {id:'t4', projectId:'destin', title:'Transmission au distributeur', role:'producteur', status:'à venir', due:d(6), dependsOn:['t3']},
-      {id:'t5', projectId:'destin', title:'Pitching plateformes', role:'producteur', status:'à venir', due:d(9), dependsOn:['t4']},
-      {id:'t6', projectId:'destin', title:'Shooting pochette', role:'photographe', status:'en cours', due:d(1), dependsOn:[]},
-      {id:'t7', projectId:'destin', title:'Sélection & retouches photos', role:'photographe', status:'à venir', due:d(3), dependsOn:['t6']},
-      {id:'t8', projectId:'destin', title:'Création pochette', role:'infographiste', status:'à venir', due:d(5), dependsOn:['t7']},
-      {id:'t9', projectId:'destin', title:'Visuels réseaux sociaux', role:'infographiste', status:'à venir', due:d(8), dependsOn:['t8']},
-      {id:'t10', projectId:'destin', title:'Tournage clip', role:'videaste', status:'en cours', due:d(2), dependsOn:[]},
-      {id:'t11', projectId:'destin', title:'Montage clip', role:'videaste', status:'à venir', due:d(7), dependsOn:['t10']},
-      {id:'t12', projectId:'destin', title:'Intégration audio final', role:'videaste', status:'à venir', due:d(9), dependsOn:['t11','t2']},
-      {id:'t13', projectId:'destin', title:'Proposition de looks', role:'styliste', status:'terminé', due:d(-5), dependsOn:[]},
-      {id:'t14', projectId:'destin', title:'Teaser TikTok', role:'cm', status:'à venir', due:d(10), dependsOn:['t9']},
-      {id:'t15', projectId:'destin', title:'Compte à rebours Instagram', role:'cm', status:'à venir', due:d(13), dependsOn:[]},
-      {id:'t16', projectId:'destin', title:'Confirmer budget clip', role:'manager', status:'en cours', due:d(1), dependsOn:[]},
+      {id:'t1', projectId:'destin', title:'Arrangement du morceau', role:'arrangeur', situation:'terminé', dateDebut:d(-28), due:d(-20), dependsOn:[], waitingReason:'', manualBlockReason:'', finalDelay:null},
+      {id:'t2', projectId:'destin', title:'Mixage', role:'arrangeur', situation:'en cours', dateDebut:d(-7), due:d(-2), dependsOn:['t1'], waitingReason:'', manualBlockReason:'', finalDelay:null},
+      {id:'t3', projectId:'destin', title:'Mastering', role:'producteur', situation:'à venir', dateDebut:d(1), due:d(3), dependsOn:['t2'], waitingReason:'', manualBlockReason:'', finalDelay:null},
+      {id:'t4', projectId:'destin', title:'Transmission au distributeur', role:'producteur', situation:'à venir', dateDebut:d(4), due:d(6), dependsOn:['t3'], waitingReason:'', manualBlockReason:'', finalDelay:null},
+      {id:'t5', projectId:'destin', title:'Pitching plateformes', role:'producteur', situation:'à venir', dateDebut:d(7), due:d(9), dependsOn:['t4'], waitingReason:'', manualBlockReason:'', finalDelay:null},
+      {id:'t6', projectId:'destin', title:'Shooting pochette', role:'photographe', situation:'en cours', dateDebut:d(-1), due:d(1), dependsOn:[], waitingReason:'', manualBlockReason:'', finalDelay:null},
+      {id:'t7', projectId:'destin', title:'Sélection & retouches photos', role:'photographe', situation:'en attente', dateDebut:d(2), due:d(3), dependsOn:['t6'], waitingReason:'Shooting pas encore livré', manualBlockReason:'', finalDelay:null},
+      {id:'t8', projectId:'destin', title:'Création pochette', role:'infographiste', situation:'à venir', dateDebut:d(4), due:d(5), dependsOn:['t7'], waitingReason:'', manualBlockReason:'', finalDelay:null},
+      {id:'t9', projectId:'destin', title:'Visuels réseaux sociaux', role:'infographiste', situation:'à venir', dateDebut:d(7), due:d(8), dependsOn:['t8'], waitingReason:'', manualBlockReason:'', finalDelay:null},
+      {id:'t10', projectId:'destin', title:'Tournage clip', role:'videaste', situation:'en cours', dateDebut:d(0), due:d(2), dependsOn:[], waitingReason:'', manualBlockReason:'', finalDelay:null},
+      {id:'t11', projectId:'destin', title:'Montage clip', role:'videaste', situation:'bloqué', dateDebut:d(3), due:d(7), dependsOn:[], waitingReason:'', manualBlockReason:'Audio final non reçu', finalDelay:null},
+      {id:'t12', projectId:'destin', title:'Intégration audio final', role:'videaste', situation:'à venir', dateDebut:d(8), due:d(9), dependsOn:['t11','t2'], waitingReason:'', manualBlockReason:'', finalDelay:null},
+      {id:'t13', projectId:'destin', title:'Proposition de looks', role:'styliste', situation:'terminé', dateDebut:d(-11), due:d(-7), dependsOn:[], waitingReason:'', manualBlockReason:'', finalDelay:2},
+      {id:'t14', projectId:'destin', title:'Teaser TikTok', role:'cm', situation:'à venir', dateDebut:d(9), due:d(10), dependsOn:['t9'], waitingReason:'', manualBlockReason:'', finalDelay:null},
+      {id:'t15', projectId:'destin', title:'Compte à rebours Instagram', role:'cm', situation:'à venir', dateDebut:d(12), due:d(13), dependsOn:[], waitingReason:'', manualBlockReason:'', finalDelay:null},
+      {id:'t16', projectId:'destin', title:'Confirmer budget clip', role:'manager', situation:'à valider', dateDebut:d(-2), due:d(1), dependsOn:[], waitingReason:'', manualBlockReason:'', finalDelay:null},
     ],
     notifications: [
       {time:'09:12', text:'⚠️ Le mixage arrive à échéance dans 2 jours.'},
@@ -332,34 +332,63 @@ function daysUntil(dateStr){
   const dueUTC = Date.UTC(y, m - 1, d);
   return Math.round((dueUTC - todayUTC) / 86400000);
 }
-function effectiveStatus(task){
-  if(task.status === 'terminé') return 'terminé';
-  const blockedBy = (task.dependsOn||[]).map(taskById).filter(dep => dep && dep.status !== 'terminé');
-  if(blockedBy.length){
-    return {status:'bloqué', blockedBy};
-  }
-  if(daysUntil(task.due) < 0){
-    return 'en retard';
-  }
-  return task.status;
+/* ============ SITUATION vs COULEUR (voir synthèse système de suivi des tâches) ============
+   - La COULEUR (bleu/vert/orange/rouge) représente EXCLUSIVEMENT la position temporelle
+     de la tâche par rapport à son échéance (sauf "terminé", toujours vert).
+   - La SITUATION (à venir / en cours / en attente / à valider / bloqué / terminé)
+     représente EXCLUSIVEMENT l'état opérationnel réel de la tâche.
+   - Le RETARD ("en retard de X jours") est calculé automatiquement (date actuelle vs
+     échéance) et n'est jamais choisi manuellement. Une fois la tâche terminée, son retard
+     final est conservé dans task.finalDelay à titre d'historique.
+*/
+const SITUATIONS = [
+  {value:'à venir', label:'À venir'},
+  {value:'en cours', label:'En cours'},
+  {value:'en attente', label:'En attente'},
+  {value:'à valider', label:'À valider'},
+  {value:'bloqué', label:'Bloqué'},
+  {value:'terminé', label:'Terminé'},
+];
+function situationLabel(value){
+  return (SITUATIONS.find(s => s.value === value) || {}).label || value;
 }
-function fmtDue(dateStr, isDone){
-  if(isDone) return `TERMINÉ`;
-  const n = daysUntil(dateStr);
+function dependencyBlockers(task){
+  return (task.dependsOn||[]).map(taskById).filter(dep => dep && dep.situation !== 'terminé');
+}
+function effectiveSituation(task){
+  if(task.situation === 'terminé') return {situation:'terminé'};
+  const blockedBy = dependencyBlockers(task);
+  if(blockedBy.length){
+    return {situation:'bloqué', autoBlocked:true, blockedBy};
+  }
+  if(task.situation === 'bloqué'){
+    return {situation:'bloqué', autoBlocked:false, manualReason: task.manualBlockReason || ''};
+  }
+  return {situation: task.situation, waitingReason: task.situation === 'en attente' ? (task.waitingReason || '') : ''};
+}
+function isTaskLate(task){
+  return task.situation !== 'terminé' && daysUntil(task.due) < 0;
+}
+function timeColorClass(task){
+  if(task.situation === 'terminé') return 'green';
+  const n = daysUntil(task.due);
+  if(n <= 0) return 'red';
+  if(n <= 6) return 'orange';
+  if(n <= 14) return 'green';
+  return 'blue';
+}
+function dueStatusText(task){
+  if(task.situation === 'terminé'){
+    return (task.finalDelay && task.finalDelay > 0) ? `TERMINÉ · RETARD FINAL : ${task.finalDelay} J` : `TERMINÉ`;
+  }
+  const n = daysUntil(task.due);
   if(n < 0) return `EN RETARD DE ${Math.abs(n)} J`;
-  if(n === 0) return `AUJOURD'HUI`;
-  if(n === 1) return `DEMAIN`;
-  return `DANS ${n} J`;
+  if(n === 0) return `ÉCHÉANCE AUJOURD'HUI`;
+  if(n === 1) return `1 JOUR RESTANT`;
+  return `${n} JOURS RESTANTS`;
 }
 const roleLabel = (id) => (ROLES.find(r=>r.id===id)||{}).label || id;
 /* ============ RENDER ============ */
-function statusDotClass(effStatus){
-  if(effStatus === 'terminé') return 'done';
-  if(effStatus === 'bloqué' || (effStatus && effStatus.status === 'bloqué')) return 'blocked';
-  if(effStatus === 'en retard') return 'late';
-  if(effStatus === 'en cours') return 'progress';
-  return 'upcoming';
-}
 function renderRoleSelect(){
   const sel = document.getElementById('roleSelect');
   sel.innerHTML = ROLES.map(r => `<option value="${r.id}" ${r.id===DATA.currentRole?'selected':''}>${r.icon} ${r.label}</option>`).join('');
@@ -382,8 +411,8 @@ function projectTitleOf(task){
 function computeHealth(projectId){
   const pid = projectId || DATA.currentProjectId;
   const tasks = projectTasks(pid);
-  const late = tasks.filter(t => effectiveStatus(t) === 'en retard');
-  const blocked = tasks.filter(t => { const s = effectiveStatus(t); return s && s.status === 'bloqué'; });
+  const late = tasks.filter(t => isTaskLate(t));
+  const blocked = tasks.filter(t => effectiveSituation(t).situation === 'bloqué');
   if(late.length > 0 || blocked.length > 1) return 'red';
   return 'green';
 }
@@ -391,13 +420,13 @@ function computeProgress(projectId){
   const pid = projectId || DATA.currentProjectId;
   const tasks = projectTasks(pid);
   if(!tasks.length) return 0;
-  const done = tasks.filter(t => t.status === 'terminé').length;
+  const done = tasks.filter(t => t.situation === 'terminé').length;
   return Math.round((done/tasks.length)*100);
 }
 function renderHero(){
   const role = ROLES.find(r=>r.id===DATA.currentRole);
   document.getElementById('heroTitle').textContent = `Bon retour, ${role.label}`;
-  const relevant = myTasks().filter(t => t.status !== 'terminé').length;
+  const relevant = myTasks().filter(t => t.situation !== 'terminé').length;
   document.getElementById('heroSub').textContent = relevant > 0
     ? `${relevant} tâche${relevant>1?'s':''} te concerne${relevant>1?'nt':''} activement.`
     : `Aucune tâche active pour toi en ce moment.`;
@@ -417,23 +446,32 @@ function renderProject(){
   dot.textContent = health === 'green' ? '🟢' : '🔴';
 }
 function taskRowHtml(task, opts={}){
-  const eff = effectiveStatus(task);
-  const isBlocked = eff && eff.status === 'bloqué';
-  const dotClass = statusDotClass(eff);
-  const blockReason = isBlocked
-    ? `Bloqué par : ${eff.blockedBy.map(b=>`"${b.title}" (${roleLabel(b.role)})`).join(', ')}`
-    : '';
+  const eff = effectiveSituation(task);
+  const isBlocked = eff.situation === 'bloqué';
+  const colorClass = timeColorClass(task);
+  let reasonLine = '';
+  if(isBlocked){
+    if(eff.autoBlocked){
+      reasonLine = `<div class="task-block-reason">Bloqué par : ${eff.blockedBy.map(b=>`"${b.title}" (${roleLabel(b.role)})`).join(', ')}</div>`;
+    } else {
+      reasonLine = `<div class="task-block-reason">Bloqué${eff.manualReason ? ` — ${eff.manualReason}` : ''}</div>`;
+    }
+  } else if(eff.situation === 'en attente' && eff.waitingReason){
+    reasonLine = `<div class="task-wait-reason">En attente — ${eff.waitingReason}</div>`;
+  }
   const projectTag = opts.showProject ? `<span class="task-project-tag">${projectTitleOf(task)}</span>` : '';
+  const situationTag = `<span class="task-situation-tag">${situationLabel(eff.situation)}</span>`;
+  const disableSelect = isBlocked && eff.autoBlocked;
   return `
     <div class="task ${isBlocked?'blocked':''}">
-      <span class="task-dot ${dotClass}"></span>
+      <span class="task-dot ${colorClass}"></span>
       <div class="task-body">
-        <div class="task-title">${task.title} ${projectTag}</div>
-        <div class="task-sub">${roleLabel(task.role)} · ${fmtDue(task.due, task.status === 'terminé')}</div>
-        ${blockReason ? `<div class="task-block-reason">${blockReason}</div>` : ''}
+        <div class="task-title">${task.title} ${situationTag} ${projectTag}</div>
+        <div class="task-sub">${roleLabel(task.role)} · ${dueStatusText(task)}</div>
+        ${reasonLine}
       </div>
-      <select onchange="changeStatus('${task.id}', this.value)" ${isBlocked?'disabled title="Débloque d\'abord la tâche dont elle dépend"':''}>
-        ${['à venir','en cours','en retard','terminé'].map(s=>`<option value="${s}" ${task.status===s?'selected':''}>${s}</option>`).join('')}
+      <select onchange="changeSituation('${task.id}', this.value)" ${disableSelect?'disabled title="Débloque d\'abord la tâche dont elle dépend"':''}>
+        ${SITUATIONS.map(s=>`<option value="${s.value}" ${task.situation===s.value?'selected':''}>${s.label}</option>`).join('')}
       </select>
       <button class="icon-btn" title="Modifier" onclick="editTask('${task.id}')">✎</button>
       <button class="icon-btn danger" title="Supprimer" onclick="deleteTask('${task.id}')">🗑</button>
@@ -441,8 +479,7 @@ function taskRowHtml(task, opts={}){
 }
 function renderTodayList(){
   const list = myTasks().filter(t => {
-    const eff = effectiveStatus(t);
-    if(eff === 'terminé') return false;
+    if(t.situation === 'terminé') return false;
     return daysUntil(t.due) <= 2;
   }).sort((a,b)=> daysUntil(a.due) - daysUntil(b.due));
   const el = document.getElementById('todayList');
@@ -455,16 +492,19 @@ function renderAllTasks(){
 }
 function renderAlerts(){
   const relevant = myTasks();
-  const late = relevant.filter(t => effectiveStatus(t) === 'en retard');
-  const blocked = relevant.filter(t => { const s = effectiveStatus(t); return s && s.status === 'bloqué'; });
+  const late = relevant.filter(t => isTaskLate(t));
+  const blocked = relevant.filter(t => effectiveSituation(t).situation === 'bloqué');
   const el = document.getElementById('alertsList');
   let html = '';
   late.forEach(t => {
     html += `<div class="alert red"><span>🔴</span><div><b>${t.title} est en retard</b><p>Échéance dépassée de ${Math.abs(daysUntil(t.due))} jour(s). Les tâches qui en dépendent risquent d'être décalées.</p></div></div>`;
   });
   blocked.forEach(t => {
-    const eff = effectiveStatus(t);
-    html += `<div class="alert orange"><span>🟠</span><div><b>${t.title} est bloquée</b><p>En attente de : ${eff.blockedBy.map(b=>b.title).join(', ')}.</p></div></div>`;
+    const eff = effectiveSituation(t);
+    const reasonText = eff.autoBlocked
+      ? `En attente de : ${eff.blockedBy.map(b=>b.title).join(', ')}.`
+      : (eff.manualReason ? eff.manualReason : 'Motif non précisé.');
+    html += `<div class="alert orange"><span>🟠</span><div><b>${t.title} est bloquée</b><p>${reasonText}</p></div></div>`;
   });
   if(!late.length && !blocked.length){
     html = `<div class="alert green"><span>🟢</span><div><b>Tout est sous contrôle</b><p>Aucune tâche en retard ou bloquée pour ce rôle.</p></div></div>`;
@@ -569,8 +609,7 @@ function renderCalendar(){
     const tasks = map[c.dateStr] || [];
     const isToday = c.dateStr === todayStr;
     const pills = tasks.slice(0,3).map(t => {
-      const eff = effectiveStatus(t);
-      const cls = statusDotClass(eff);
+      const cls = timeColorClass(t);
       return `<span class="cal-pill ${cls}">${t.title}</span>`;
     }).join('');
     const more = tasks.length > 3 ? `<span class="cal-pill more">+${tasks.length - 3}</span>` : '';
@@ -640,8 +679,7 @@ function renderFullCalendar(){
     const tasks = map[c.dateStr] || [];
     const isToday = c.dateStr === todayStr;
     const pills = tasks.slice(0,3).map(t => {
-      const eff = effectiveStatus(t);
-      const cls = statusDotClass(eff);
+      const cls = timeColorClass(t);
       const proj = projectTitleOf(t);
       return `<span class="cal-pill ${cls}" title="${proj} — ${t.title}">${proj} · ${t.title}</span>`;
     }).join('');
@@ -667,35 +705,63 @@ function showFullDayTasks(dateStr){
 }
 window.showFullDayTasks = showFullDayTasks;
 /* ============ INTERACTIONS ============ */
-function changeStatus(taskId, newStatus){
+function changeSituation(taskId, newSituation){
   const task = taskById(taskId);
   if(!task) return;
-  const oldStatus = task.status;
-  task.status = newStatus;
-  if(newStatus === 'terminé' && oldStatus !== 'terminé'){
+  const oldSituation = task.situation;
+  if(newSituation === 'en attente'){
+    const reason = prompt('Pourquoi cette tâche est-elle en attente ? (ex. "audio final attendu")', task.waitingReason || '');
+    if(reason === null){ renderAll(); return; }
+    task.waitingReason = reason.trim();
+  } else if(oldSituation === 'en attente'){
+    task.waitingReason = '';
+  }
+  if(newSituation === 'bloqué'){
+    const reason = prompt('Pourquoi cette tâche est-elle bloquée ? (motif libre, ex. "attente validation client")', task.manualBlockReason || '');
+    if(reason === null){ renderAll(); return; }
+    task.manualBlockReason = reason.trim();
+  } else if(oldSituation === 'bloqué'){
+    task.manualBlockReason = '';
+  }
+  task.situation = newSituation;
+  if(newSituation === 'terminé' && oldSituation !== 'terminé'){
+    const lateDays = daysUntil(task.due) < 0 ? Math.abs(daysUntil(task.due)) : 0;
+    task.finalDelay = lateDays;
     const dependents = DATA.tasks.filter(t => (t.dependsOn||[]).includes(taskId));
     if(dependents.length){
       DATA.notifications.unshift({
         time: 'À l\'instant',
-        text: `✅ ${task.title} terminé. Prochaine étape : ${dependents.map(d=>d.title).join(', ')}.`
+        text: `✅ ${task.title} terminé${lateDays>0?` (retard final : ${lateDays} j)`:''}. Prochaine étape : ${dependents.map(d=>d.title).join(', ')}.`
       });
     }
+  }
+  if(oldSituation === 'terminé' && newSituation !== 'terminé'){
+    task.finalDelay = null;
   }
   saveData(DATA);
   renderAll();
 }
-window.changeStatus = changeStatus;
+window.changeSituation = changeSituation;
 function editTask(id){
   const task = taskById(id);
   if(!task) return;
   const newTitle = prompt('Titre de la tâche :', task.title);
   if(newTitle === null) return;
-  const newDue = prompt('Date d\'échéance (AAAA-MM-JJ) :', task.due);
+  const newDebut = prompt('Date de début (AAAA-MM-JJ) :', task.dateDebut || task.due);
+  if(newDebut === null) return;
+  const newDue = prompt('Date d\'échéance / deadline (AAAA-MM-JJ) :', task.due);
   if(newDue === null) return;
   if(newTitle.trim()) task.title = newTitle.trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(newDebut.trim())) task.dateDebut = newDebut.trim();
+  else if(newDebut.trim() !== (task.dateDebut || '')){
+    alert('Format de date de début invalide, elle n\'a pas été changée (utilise AAAA-MM-JJ).');
+  }
   if(/^\d{4}-\d{2}-\d{2}$/.test(newDue.trim())) task.due = newDue.trim();
   else if(newDue.trim() !== task.due){
-    alert('Format de date invalide, la date n\'a pas été changée (utilise AAAA-MM-JJ).');
+    alert('Format de date d\'échéance invalide, elle n\'a pas été changée (utilise AAAA-MM-JJ).');
+  }
+  if(task.dateDebut && task.due && task.dateDebut > task.due){
+    alert('Attention : la date de début est après l\'échéance. Vérifie ces deux dates.');
   }
   saveData(DATA);
   renderAll();
@@ -735,6 +801,7 @@ function editProject(id, evt){
       if(delta !== 0){
         DATA.tasks.filter(t => t.projectId === id).forEach(t => {
           t.due = addDaysTo(t.due, delta);
+          if(t.dateDebut) t.dateDebut = addDaysTo(t.dateDebut, delta);
         });
         DATA.notifications.unshift({
           time: 'À l\'instant',
@@ -763,6 +830,7 @@ function resyncProjectTasks(id, evt){
       const template = RELEASE_TEMPLATE.find(item => item.key === key);
       if(template){
         t.due = addDaysTo(proj.releaseDate, template.offset);
+        t.dateDebut = addDaysTo(t.due, -DEFAULT_LEAD_DAYS);
         count++;
       }
     }
@@ -793,6 +861,7 @@ function deleteProject(id, evt){
 }
 window.deleteProject = deleteProject;
 /* ============ PROJECTS ============ */
+const DEFAULT_LEAD_DAYS = 5; // délai par défaut entre la date de début et l'échéance d'une tâche générée automatiquement
 const RELEASE_TEMPLATE = [
   {key:'arrangement', title:'Arrangement', role:'arrangeur', offset:-35, deps:[]},
   {key:'enregistrement', title:'Enregistrement', role:'arrangeur', offset:-32, deps:['arrangement']},
@@ -834,14 +903,19 @@ function slugify(str){
 function generateReleasePlan(project){
   const idPrefix = project.id;
   RELEASE_TEMPLATE.forEach(item => {
+    const due = addDaysTo(project.releaseDate, item.offset);
     DATA.tasks.push({
       id: `${idPrefix}_${item.key}`,
       projectId: idPrefix,
       title: item.title,
       role: item.role,
-      status: 'à venir',
-      due: addDaysTo(project.releaseDate, item.offset),
+      situation: 'à venir',
+      dateDebut: addDaysTo(due, -DEFAULT_LEAD_DAYS),
+      due,
       dependsOn: item.deps.map(k => `${idPrefix}_${k}`),
+      waitingReason: '',
+      manualBlockReason: '',
+      finalDelay: null,
     });
   });
 }
@@ -925,11 +999,17 @@ document.getElementById('newTaskForm').addEventListener('submit', (e) => {
   if(!proj){ alert('Crée d\'abord un projet dans l\'onglet Projets.'); return; }
   const title = document.getElementById('ntTitle').value.trim();
   const role = document.getElementById('ntRole').value;
+  const dateDebut = document.getElementById('ntDateDebut').value;
   const due = document.getElementById('ntDue').value;
-  if(!title || !due) return;
+  if(!title || !due || !dateDebut) return;
+  if(dateDebut > due){
+    alert('La date de début doit être avant (ou égale à) la date d\'échéance.');
+    return;
+  }
   const id = `${proj.id}_${slugify(title)}_${Math.random().toString(36).slice(2,6)}`;
   DATA.tasks.push({
-    id, projectId: proj.id, title, role, status: 'à venir', due, dependsOn: []
+    id, projectId: proj.id, title, role, situation: 'à venir', dateDebut, due, dependsOn: [],
+    waitingReason: '', manualBlockReason: '', finalDelay: null
   });
   DATA.notifications.unshift({
     time: 'À l\'instant',
