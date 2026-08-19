@@ -26,7 +26,7 @@ const ROLES = [
 ];
 const LOCAL_KEY = 'artistos_local_v1';
 function defaultArtistProfile(){
-  return { name:'Tanguy DJE RoiStar', genre:'', bio:'', manager:'', phone:'', email:'' };
+  return { name:'Tanguy DJE RoiStar', genre:'', bio:'', manager:'', phone:'', email:'', rolePin:'0000' };
 }
 function seedShared(){
   const today = new Date();
@@ -88,6 +88,7 @@ function saveLocalPrefs(){
 let DATA = Object.assign({ projects: [], tasks: [], notifications: [], bookings: [], artistProfile: defaultArtistProfile(), tasksRoleFilter: false, fullProgramRoleFilter: false }, loadLocalPrefs());
 let dataReady = false;
 let projectSelected = false;
+let roleUnlocked = false; // se réinitialise à chaque chargement de page
 function saveData(data){
   saveLocalPrefs();
   setSyncBadge('saving');
@@ -429,12 +430,43 @@ function roleTaskCount(roleId){
   if(roleId === 'artiste' || roleId === 'manager') return tasks.length;
   return tasks.filter(t => t.role === roleId).length;
 }
+const PROTECTED_ROLES = ['artiste', 'manager'];
 function selectRole(roleId){
+  if(PROTECTED_ROLES.includes(roleId) && DATA.currentRole !== roleId && !roleUnlocked){
+    const p = Object.assign(defaultArtistProfile(), DATA.artistProfile || {});
+    const code = prompt('Ce rôle est protégé par un code. Entre le code à 4 chiffres :');
+    if(code === null){ renderRoleSelect(); renderRoleChips(); return; } // annulé : on ne change rien
+    if(code !== (p.rolePin || '0000')){
+      alert('Code incorrect.');
+      renderRoleSelect(); renderRoleChips();
+      return;
+    }
+    roleUnlocked = true;
+  }
   DATA.currentRole = roleId;
   saveLocalPrefs();
   renderAll();
 }
 window.selectRole = selectRole;
+function changeRolePin(){
+  const p = Object.assign(defaultArtistProfile(), DATA.artistProfile || {});
+  const current = prompt('Code actuel :');
+  if(current === null) return;
+  if(current !== (p.rolePin || '0000')){
+    alert('Code actuel incorrect.');
+    return;
+  }
+  const next = prompt('Nouveau code (4 chiffres) :');
+  if(next === null) return;
+  if(!/^\d{4}$/.test(next)){
+    alert('Le code doit contenir exactement 4 chiffres.');
+    return;
+  }
+  DATA.artistProfile = Object.assign({}, p, { rolePin: next });
+  saveData(DATA);
+  alert('Code mis à jour ✅');
+}
+window.changeRolePin = changeRolePin;
 function renderRoleSelect(){
   const sel = document.getElementById('roleSelect');
   sel.innerHTML = ROLES.map(r => {
