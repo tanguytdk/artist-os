@@ -239,6 +239,7 @@ function startSync(){
         if(banner) banner.style.display = 'flex';
       }
       DATA.projects = shared.projects || [];
+      const migrationHappened = migrateTasksInPlace(shared.tasks || []);
       DATA.tasks = shared.tasks || [];
       DATA.notifications = shared.notifications || [];
       DATA.bookings = shared.bookings || [];
@@ -250,6 +251,12 @@ function startSync(){
       } else {
         showAppRoot();
         renderAll();
+      }
+      if(migrationHappened){
+        // D'anciennes tâches utilisaient encore le champ "status" (avant l'introduction de
+        // situation/dateDebut/retard). On les a converties en mémoire ci-dessus sans rien
+        // perdre de leur avancement réel ; on réenregistre une fois pour mettre la base à jour.
+        saveData(DATA);
       }
     }, err => {
       console.error('Erreur de synchronisation Firestore :', err);
@@ -351,6 +358,32 @@ const SITUATIONS = [
 ];
 function situationLabel(value){
   return (SITUATIONS.find(s => s.value === value) || {}).label || value;
+}
+/* ============ MIGRATION — anciennes tâches (champ "status") vers le nouveau schéma
+   (situation / dateDebut / waitingReason / manualBlockReason / finalDelay). Sans cette
+   conversion, les tâches déjà enregistrées avant l'introduction de ce système (ex. projets
+   déjà avancés) n'ont pas de champ "situation" : elles seraient lues comme "à venir" partout
+   (0 % d'avancement affiché) alors que le vrai travail effectué, lui, n'a jamais bougé. ============ */
+function migrateTasksInPlace(tasks){
+  let migrated = false;
+  tasks.forEach(t => {
+    if(t.situation === undefined){
+      let situation = t.status;
+      if(situation === 'en retard') situation = 'en cours'; // le retard est désormais recalculé automatiquement, ce n'est plus un statut choisi
+      if(!SITUATIONS.some(s => s.value === situation)) situation = 'à venir';
+      t.situation = situation;
+      delete t.status;
+      migrated = true;
+    }
+    if(!t.dateDebut){
+      t.dateDebut = t.due;
+      migrated = true;
+    }
+    if(t.waitingReason === undefined){ t.waitingReason = ''; migrated = true; }
+    if(t.manualBlockReason === undefined){ t.manualBlockReason = ''; migrated = true; }
+    if(t.finalDelay === undefined){ t.finalDelay = null; migrated = true; }
+  });
+  return migrated;
 }
 function dependencyBlockers(task){
   return (task.dependsOn||[]).map(taskById).filter(dep => dep && dep.situation !== 'terminé');
