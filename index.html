@@ -166,10 +166,17 @@
         <form id="newTaskForm" class="new-project-form">
           <input type="text" id="ntTitle" placeholder="Titre de la tâche" required>
           <select id="ntRole"></select>
-          <input type="date" id="ntDue" required>
+          <div class="field-group">
+            <label class="field-label">Date de début</label>
+            <input type="date" id="ntDateDebut" required>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Échéance (deadline)</label>
+            <input type="date" id="ntDue" required>
+          </div>
           <button type="submit" class="cta-inline">Créer la tâche</button>
         </form>
-        <p class="form-hint">La tâche est ajoutée au projet actuellement sélectionné (visible dans l'onglet Projets). Pour lier une dépendance, utilise le bouton ✎ après création.</p>
+        <p class="form-hint">La tâche est ajoutée au projet actuellement sélectionné (visible dans l'onglet Projets), avec sa date de début et son échéance. Pour lier une dépendance, utilise le bouton ✎ après création.</p>
       </div>
       <div class="card">
         <h2 id="tasksViewTitle">Tâches du projet</h2>
