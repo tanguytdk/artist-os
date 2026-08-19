@@ -26,7 +26,7 @@ const ROLES = [
 ];
 const LOCAL_KEY = 'artistos_local_v1';
 function defaultArtistProfile(){
-  return { name:'Tanguy DJE RoiStar', genre:'', bio:'', manager:'', phone:'', email:'', headerPhoto:'' };
+  return { name:'Tanguy DJE RoiStar', genre:'', bio:'', manager:'', phone:'', email:'' };
 }
 function seedShared(){
   const today = new Date();
@@ -332,8 +332,7 @@ function computeHealth(projectId){
   const tasks = projectTasks(pid);
   const late = tasks.filter(t => effectiveStatus(t) === 'en retard');
   const blocked = tasks.filter(t => { const s = effectiveStatus(t); return s && s.status === 'bloqué'; });
-  if(late.length > 0) return 'red';
-  if(blocked.length > 1) return 'orange';
+  if(late.length > 0 || blocked.length > 1) return 'red';
   return 'green';
 }
 function computeProgress(projectId){
@@ -363,7 +362,7 @@ function renderProject(){
   const health = computeHealth();
   const dot = document.getElementById('healthDot');
   dot.className = 'health ' + health;
-  dot.textContent = health === 'green' ? '🟢' : health === 'orange' ? '🟠' : '🔴';
+  dot.textContent = health === 'green' ? '🟢' : '🔴';
 }
 function taskRowHtml(task, opts={}){
   const eff = effectiveStatus(task);
@@ -722,7 +721,7 @@ function renderProjectsList(){
   el.innerHTML = sortedProjects.map(p => {
     const pct = computeProgress(p.id);
     const health = computeHealth(p.id);
-    const healthIcon = health === 'green' ? '🟢' : health === 'orange' ? '🟠' : '🔴';
+    const healthIcon = health === 'green' ? '🟢' : '🔴';
     const isCurrent = p.id === DATA.currentProjectId;
     return `
       <div class="proj-card ${isCurrent?'current':''}" onclick="setCurrentProject('${p.id}')">
@@ -948,7 +947,6 @@ function renderArtistProfile(){
     ['Manager / Contact', p.manager],
     ['Téléphone', p.phone],
     ['Email', p.email],
-    ['Photo d\'en-tête (PDF)', p.headerPhoto],
   ];
   el.innerHTML = rows.map(([label, val]) => `<div class="row"><b>${label}</b><span>${val ? val : 'Non renseigné'}</span></div>`).join('');
 }
@@ -966,64 +964,34 @@ function editArtistProfile(){
   if(phone === null) return;
   const email = prompt('Email :', p.email);
   if(email === null) return;
-  const headerPhoto = prompt('URL de la photo d\'en-tête pour le PDF (lien direct vers une image .jpg/.png hébergée en ligne, laisse vide pour aucune) :', p.headerPhoto || '');
-  if(headerPhoto === null) return;
   DATA.artistProfile = {
     name: name.trim(), genre: genre.trim(), bio: bio.trim(),
-    manager: manager.trim(), phone: phone.trim(), email: email.trim(),
-    headerPhoto: headerPhoto.trim()
+    manager: manager.trim(), phone: phone.trim(), email: email.trim()
   };
   saveData(DATA);
   renderArtistProfile();
 }
 window.editArtistProfile = editArtistProfile;
 
-function loadImageAsDataURL(url){
-  return fetch(url, {mode:'cors'}).then(res => {
-    if(!res.ok) throw new Error('Réponse HTTP ' + res.status);
-    return res.blob();
-  }).then(blob => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error('Lecture du fichier impossible'));
-    reader.readAsDataURL(blob);
-  }));
-}
-function coverCropImage(dataUrl, targetWpx, targetHpx){
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      try{
-        const canvas = document.createElement('canvas');
-        canvas.width = targetWpx;
-        canvas.height = targetHpx;
-        const ctx = canvas.getContext('2d');
-        const srcRatio = img.naturalWidth / img.naturalHeight;
-        const dstRatio = targetWpx / targetHpx;
-        let sx, sy, sw, sh;
-        if(srcRatio > dstRatio){
-          sh = img.naturalHeight; sw = sh * dstRatio; sx = (img.naturalWidth - sw) / 2; sy = 0;
-        } else {
-          sw = img.naturalWidth; sh = sw / dstRatio; sx = 0; sy = (img.naturalHeight - sh) / 2;
-        }
-        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetWpx, targetHpx);
-        resolve(canvas.toDataURL('image/jpeg', 0.87));
-      }catch(e){ reject(e); }
-    };
-    img.onerror = () => reject(new Error('Image illisible'));
-    img.src = dataUrl;
-  });
-}
-async function downloadBookingPDF(){
+async function downloadUpcomingBookingPDF(){
   try{
-    await generateBookingPDF();
+    await generateBookingPDF('upcoming');
   }catch(err){
     console.error('Erreur lors de la génération du PDF :', err);
     alert('Une erreur est survenue pendant la génération du PDF. Regarde la console (F12) pour le détail.');
   }
 }
-window.downloadBookingPDF = downloadBookingPDF;
-async function generateBookingPDF(){
+window.downloadUpcomingBookingPDF = downloadUpcomingBookingPDF;
+async function downloadDoneBookingPDF(){
+  try{
+    await generateBookingPDF('done');
+  }catch(err){
+    console.error('Erreur lors de la génération du PDF :', err);
+    alert('Une erreur est survenue pendant la génération du PDF. Regarde la console (F12) pour le détail.');
+  }
+}
+window.downloadDoneBookingPDF = downloadDoneBookingPDF;
+async function generateBookingPDF(filterType){
   if(!window.jspdf){
     alert('Le générateur de PDF n\'a pas pu se charger. Vérifie ta connexion et réessaie.');
     return;
@@ -1076,56 +1044,14 @@ async function generateBookingPDF(){
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
   }
 
-  /* ---------- Photo d'en-tête (si renseignée dans le profil) ---------- */
-  let headerPhotoData = null;
-  if(p.headerPhoto){
-    try{
-      const rawDataUrl = await loadImageAsDataURL(p.headerPhoto);
-      // rendu ~150dpi pour un bon compromis qualité / poids de fichier
-      const pxPerMm = 150 / 25.4;
-      const cropped = await coverCropImage(rawDataUrl, Math.round(pageWidth * pxPerMm), Math.round(HEADER_H * pxPerMm));
-      headerPhotoData = cropped;
-    }catch(err){
-      console.warn('Photo d\'en-tête introuvable ou non chargeable, utilisation du dégradé par défaut :', err);
-      headerPhotoData = null;
-    }
-  }
-
-  /* ---------- En-tête : photo (si disponible) ou dégradé violet -> bleu, + voile sombre pour la lisibilité ---------- */
+  /* ---------- En-tête : dégradé violet -> bleu ---------- */
   function drawHeader(){
-    if(headerPhotoData){
-      try{
-        doc.addImage(headerPhotoData, 'JPEG', 0, 0, pageWidth, HEADER_H, undefined, 'FAST');
-      }catch(e){
-        headerPhotoData = null;
-      }
-    }
-    if(!headerPhotoData){
-      const bands = 70;
-      for(let i=0;i<bands;i++){
-        const t = i/(bands-1);
-        const [r,g,b] = lerpColor(violet, blue, t);
-        doc.setFillColor(r,g,b);
-        doc.rect(0, (HEADER_H/bands)*i, pageWidth, (HEADER_H/bands)+0.5, 'F');
-      }
-    } else {
-      // voile violet sombre sur la photo pour que le texte reste lisible
-      let veiled = false;
-      try{
-        doc.saveGraphicsState();
-        doc.setGState(new doc.GState({opacity:0.52}));
-        doc.setFillColor(18,13,32);
-        doc.rect(0, 0, pageWidth, HEADER_H, 'F');
-        doc.restoreGraphicsState();
-        veiled = true;
-      }catch(e){
-        veiled = false;
-      }
-      if(!veiled){
-        // secours si l'opacité n'est pas disponible : plaque pleine derrière le nom uniquement
-        doc.setFillColor(18,13,32);
-        doc.roundedRect(MARGIN_L - 3, 20, Math.min(pageWidth - 2*MARGIN_L + 6, 150), 22, 2, 2, 'F');
-      }
+    const bands = 70;
+    for(let i=0;i<bands;i++){
+      const t = i/(bands-1);
+      const [r,g,b] = lerpColor(violet, blue, t);
+      doc.setFillColor(r,g,b);
+      doc.rect(0, (HEADER_H/bands)*i, pageWidth, (HEADER_H/bands)+0.5, 'F');
     }
 
     doc.setFillColor(...white);
@@ -1141,7 +1067,8 @@ async function generateBookingPDF(){
 
     doc.setFont('helvetica','normal');
     doc.setFontSize(11);
-    doc.text('Programme complet · Booking', MARGIN_L, 38);
+    const subtitle = filterType === 'done' ? 'Programme déjà effectué · Booking' : 'Programme à venir · Booking';
+    doc.text(subtitle, MARGIN_L, 38);
 
     const yearStr = String(new Date().getFullYear());
     doc.setFillColor(...white);
@@ -1163,7 +1090,7 @@ async function generateBookingPDF(){
   const pageContentTop = {1: 0};
   let y = drawHeader() + 12;
 
-  /* ---------- Profil (compact, une seule ligne + bio courte) ---------- */
+  /* ---------- Profil (compact : nom d'artiste [déjà en en-tête], genre, manager/contact uniquement) ---------- */
   doc.setTextColor(...white);
   doc.setFont('helvetica','bold');
   doc.setFontSize(10.5);
@@ -1171,9 +1098,7 @@ async function generateBookingPDF(){
   y += 6;
   const profileBits = [
     p.genre ? pdfSafe(p.genre) : null,
-    p.manager ? `Manager : ${pdfSafe(p.manager)}` : null,
-    p.phone ? `Tél : ${pdfSafe(p.phone)}` : null,
-    p.email ? `Email : ${pdfSafe(p.email)}` : null,
+    p.manager ? `Manager / Contact : ${pdfSafe(p.manager)}` : null,
   ].filter(Boolean);
   if(profileBits.length){
     doc.setFont('helvetica','normal');
@@ -1181,14 +1106,6 @@ async function generateBookingPDF(){
     doc.setTextColor(...mutedLight);
     doc.text(profileBits.join('   ·   '), CONTENT_X, y);
     y += 5.5;
-  }
-  if(p.bio){
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(9);
-    doc.setTextColor(...white);
-    const bioLines = doc.splitTextToSize(pdfSafe(p.bio), CONTENT_R - CONTENT_X);
-    doc.text(bioLines, CONTENT_X, y);
-    y += bioLines.length * 4.6 + 2;
   }
   y += 5;
   doc.setDrawColor(...boxBorder);
@@ -1211,8 +1128,11 @@ async function generateBookingPDF(){
     return false;
   }
 
-  /* ---------- Programme groupé par date ---------- */
-  const events = (DATA.bookings || []).slice().sort((a,b)=> daysUntil(a.date) - daysUntil(b.date));
+  /* ---------- Programme groupé par date (filtré : à venir OU déjà effectué) ---------- */
+  const events = (DATA.bookings || [])
+    .filter(b => filterType === 'done' ? b.status === 'terminé' : b.status !== 'terminé')
+    .slice()
+    .sort((a,b)=> filterType === 'done' ? (daysUntil(b.date) - daysUntil(a.date)) : (daysUntil(a.date) - daysUntil(b.date)));
 
   doc.setFont('helvetica','bold');
   doc.setFontSize(12.5);
@@ -1224,7 +1144,8 @@ async function generateBookingPDF(){
     doc.setFont('helvetica','normal');
     doc.setFontSize(9.5);
     doc.setTextColor(...mutedLight);
-    doc.text('Aucun événement enregistré pour le moment.', CONTENT_X, y);
+    const emptyMsg = filterType === 'done' ? 'Aucun événement effectué pour le moment.' : 'Aucun événement à venir pour le moment.';
+    doc.text(emptyMsg, CONTENT_X, y);
     y += 8;
   }
 
@@ -1376,14 +1297,14 @@ async function generateBookingPDF(){
     doc.setTextColor(...white);
     doc.setFont('helvetica','bold');
     doc.setFontSize(8);
-    const contactBits = [p.phone, p.email].filter(Boolean).map(pdfSafe).join('   ·   ');
-    doc.text(contactBits || pdfSafe(p.manager) || pdfSafe(p.name) || 'Artist OS', CONTENT_X + 6, barY + FOOTER_H/2 + 1.3);
+    doc.text(pdfSafe(p.manager) || pdfSafe(p.name) || 'Artist OS', CONTENT_X + 6, barY + FOOTER_H/2 + 1.3);
     doc.setFont('helvetica','normal');
     doc.setFontSize(7.5);
     doc.text(`page ${i}/${pageCount}`, CONTENT_R - 6, barY + FOOTER_H/2 + 1.3, {align:'right'});
   }
 
-  const filename = `programme-${slugify(p.name || 'artiste')}-${new Date().toISOString().slice(0,10)}.pdf`;
+  const filterSlug = filterType === 'done' ? 'deja-effectue' : 'a-venir';
+  const filename = `programme-${filterSlug}-${slugify(p.name || 'artiste')}-${new Date().toISOString().slice(0,10)}.pdf`;
   doc.save(filename);
 }
 /* ============ INIT ============ */
