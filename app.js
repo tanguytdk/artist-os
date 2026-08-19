@@ -85,6 +85,7 @@ function saveLocalPrefs(){
 }
 let DATA = Object.assign({ projects: [], tasks: [], notifications: [], bookings: [], artistProfile: defaultArtistProfile() }, loadLocalPrefs());
 let dataReady = false;
+let projectSelected = false;
 function saveData(data){
   saveLocalPrefs();
   setSyncBadge('saving');
@@ -110,16 +111,64 @@ function setSyncBadge(state){
 /* ============ CONNEXION ============ */
 function showLoginScreen(){
   const login = document.getElementById('loginScreen');
+  const projSel = document.getElementById('projectSelectScreen');
   const appRoot = document.getElementById('appRoot');
   if(login) login.style.display = 'flex';
+  if(projSel) projSel.style.display = 'none';
   if(appRoot) appRoot.style.display = 'none';
 }
-function hideLoginScreen(){
+function showProjectSelectScreen(){
   const login = document.getElementById('loginScreen');
+  const projSel = document.getElementById('projectSelectScreen');
   const appRoot = document.getElementById('appRoot');
   if(login) login.style.display = 'none';
+  if(projSel) projSel.style.display = 'flex';
+  if(appRoot) appRoot.style.display = 'none';
+  renderProjectSelectDropdown();
+}
+function showAppRoot(){
+  const login = document.getElementById('loginScreen');
+  const projSel = document.getElementById('projectSelectScreen');
+  const appRoot = document.getElementById('appRoot');
+  if(login) login.style.display = 'none';
+  if(projSel) projSel.style.display = 'none';
   if(appRoot) appRoot.style.display = 'block';
 }
+function renderProjectSelectDropdown(){
+  const sel = document.getElementById('projectSelectDropdown');
+  const btn = document.getElementById('projectSelectBtn');
+  const err = document.getElementById('projectSelectError');
+  if(!sel) return;
+  if(!DATA.projects || !DATA.projects.length){
+    sel.innerHTML = '<option value="">Aucun projet disponible</option>';
+    sel.disabled = true;
+    if(btn) btn.disabled = true;
+    if(err) err.textContent = 'Aucun projet pour l\'instant. Connecte-toi, crée un projet dans l\'onglet Projets, puis reviens choisir.';
+    return;
+  }
+  sel.disabled = false;
+  if(btn) btn.disabled = false;
+  if(err) err.textContent = '';
+  const previousValue = sel.value;
+  const sortedProjects = DATA.projects.slice().sort((a,b)=> new Date(a.releaseDate) - new Date(b.releaseDate));
+  sel.innerHTML = sortedProjects.map(p => `<option value="${p.id}">${p.title} — sortie le ${new Date(p.releaseDate + 'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</option>`).join('');
+  if(sortedProjects.some(p => p.id === previousValue)){
+    sel.value = previousValue;
+  } else if(DATA.currentProjectId && sortedProjects.some(p => p.id === DATA.currentProjectId)){
+    sel.value = DATA.currentProjectId;
+  }
+}
+function confirmProjectSelection(){
+  const sel = document.getElementById('projectSelectDropdown');
+  if(!sel || !sel.value) return;
+  DATA.currentProjectId = sel.value;
+  saveLocalPrefs();
+  projectSelected = true;
+  showAppRoot();
+  switchView('dashboard');
+  renderAll();
+}
+window.confirmProjectSelection = confirmProjectSelection;
 function handleLogin(e){
   e.preventDefault();
   const email = document.getElementById('loginEmail').value.trim();
@@ -167,6 +216,7 @@ function startSync(){
   auth.onAuthStateChanged(user => {
     if(!user){
       dataReady = false;
+      projectSelected = false;
       clearInactivityTimer();
       showLoginScreen();
       if(loggedOutForInactivity){
@@ -176,7 +226,6 @@ function startSync(){
       }
       return;
     }
-    hideLoginScreen();
     resetInactivityTimer();
     DOC_REF.onSnapshot(snap => {
       let shared;
@@ -194,12 +243,14 @@ function startSync(){
       DATA.notifications = shared.notifications || [];
       DATA.bookings = shared.bookings || [];
       DATA.artistProfile = shared.artistProfile || defaultArtistProfile();
-      if(!DATA.currentProjectId || !DATA.projects.some(p => p.id === DATA.currentProjectId)){
-        DATA.currentProjectId = DATA.projects[0] ? DATA.projects[0].id : null;
-      }
       dataReady = true;
       setSyncBadge('ok');
-      renderAll();
+      if(!projectSelected){
+        showProjectSelectScreen();
+      } else {
+        showAppRoot();
+        renderAll();
+      }
     }, err => {
       console.error('Erreur de synchronisation Firestore :', err);
       setSyncBadge('err');
@@ -449,6 +500,9 @@ function renderAll(){
     renderBookingList();
     renderArtistProfile();
   }
+  if(document.getElementById('view-fullprogram').classList.contains('active')){
+    renderFullCalendar();
+  }
 }
 /* ============ CALENDAR ============ */
 let currentMonth = new Date();
@@ -460,15 +514,18 @@ function switchView(view){
   document.getElementById('navProjects').classList.toggle('active', view === 'projects');
   document.getElementById('navTasks').classList.toggle('active', view === 'tasks');
   document.getElementById('navBooking').classList.toggle('active', view === 'booking');
+  document.getElementById('navFullProgram').classList.toggle('active', view === 'fullprogram');
   document.getElementById('view-dashboard').classList.toggle('active', view === 'dashboard');
   document.getElementById('view-calendar').classList.toggle('active', view === 'calendar');
   document.getElementById('view-projects').classList.toggle('active', view === 'projects');
   document.getElementById('view-tasks').classList.toggle('active', view === 'tasks');
   document.getElementById('view-booking').classList.toggle('active', view === 'booking');
+  document.getElementById('view-fullprogram').classList.toggle('active', view === 'fullprogram');
   if(view === 'calendar') renderCalendar();
   if(view === 'projects') renderProjectsList();
   if(view === 'tasks') renderTasksView();
   if(view === 'booking'){ renderBookingList(); renderArtistProfile(); }
+  if(view === 'fullprogram') renderFullCalendar();
 }
 window.switchView = switchView;
 function shiftMonth(delta){
@@ -536,6 +593,78 @@ function showDayTasks(dateStr){
   card.style.display = 'block';
 }
 window.showDayTasks = showDayTasks;
+/* ============ CALENDRIER — PROGRAMME COMPLET (tous projets) ============ */
+let fullCalMonth = new Date();
+fullCalMonth.setDate(1);
+let selectedFullCalDate = null;
+function shiftFullMonth(delta){
+  fullCalMonth.setMonth(fullCalMonth.getMonth() + delta);
+  renderFullCalendar();
+}
+window.shiftFullMonth = shiftFullMonth;
+function allTasksByDate(){
+  const map = {};
+  (DATA.tasks || []).forEach(t => {
+    (map[t.due] = map[t.due] || []).push(t);
+  });
+  return map;
+}
+function renderFullCalendar(){
+  const labelEl = document.getElementById('fullCalMonthLabel');
+  if(!labelEl) return;
+  const label = fullCalMonth.toLocaleDateString('fr-FR', {month:'long', year:'numeric'});
+  labelEl.textContent = label;
+  const map = allTasksByDate();
+  const year = fullCalMonth.getFullYear();
+  const month = fullCalMonth.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startOffset = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const prevMonthDays = new Date(year, month, 0).getDate();
+  const todayStr = new Date().toISOString().slice(0,10);
+  let cells = [];
+  for(let i = startOffset - 1; i >= 0; i--){
+    cells.push({day: prevMonthDays - i, outside: true, dateStr: null});
+  }
+  for(let d = 1; d <= daysInMonth; d++){
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    cells.push({day: d, outside: false, dateStr});
+  }
+  while(cells.length % 7 !== 0){
+    cells.push({day: '', outside: true, dateStr: null});
+  }
+  const el = document.getElementById('fullCalGrid');
+  el.innerHTML = cells.map(c => {
+    if(c.outside) return `<div class="cal-day outside"><div class="num">${c.day}</div></div>`;
+    const tasks = map[c.dateStr] || [];
+    const isToday = c.dateStr === todayStr;
+    const pills = tasks.slice(0,3).map(t => {
+      const eff = effectiveStatus(t);
+      const cls = statusDotClass(eff);
+      const proj = projectTitleOf(t);
+      return `<span class="cal-pill ${cls}" title="${proj} — ${t.title}">${proj} · ${t.title}</span>`;
+    }).join('');
+    const more = tasks.length > 3 ? `<span class="cal-pill more">+${tasks.length - 3}</span>` : '';
+    const hasTasks = tasks.length ? 'has-tasks' : '';
+    return `<div class="cal-day ${isToday?'today':''} ${hasTasks}" onclick="showFullDayTasks('${c.dateStr}')"><div class="num">${c.day}</div>${pills}${more}</div>`;
+  }).join('');
+  if(selectedFullCalDate){
+    showFullDayTasks(selectedFullCalDate);
+  }
+}
+function showFullDayTasks(dateStr){
+  selectedFullCalDate = dateStr;
+  const map = allTasksByDate();
+  const tasks = (map[dateStr] || []).slice().sort((a,b)=> projectTitleOf(a).localeCompare(projectTitleOf(b)));
+  const card = document.getElementById('fullCalDayCard');
+  const title = document.getElementById('fullCalDayTitle');
+  const list = document.getElementById('fullCalDayTasks');
+  const d = new Date(dateStr + 'T00:00:00');
+  title.textContent = d.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'});
+  list.innerHTML = tasks.length ? tasks.map(t => taskRowHtml(t, {showProject:true})).join('') : `<div class="empty">Aucune tâche ce jour-là, tous projets confondus.</div>`;
+  card.style.display = 'block';
+}
+window.showFullDayTasks = showFullDayTasks;
 /* ============ INTERACTIONS ============ */
 function changeStatus(taskId, newStatus){
   const task = taskById(taskId);
