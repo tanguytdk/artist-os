@@ -212,9 +212,12 @@
         <div id="artistProfileView" class="artist-profile"></div>
         <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
           <button class="icon-btn wide" onclick="editArtistProfile()">✎ Modifier le profil</button>
-          <button class="cta-inline" onclick="downloadBookingPDF()">⬇️ Télécharger le programme complet en PDF</button>
         </div>
-        <p class="form-hint">Le PDF reprend le profil ci-dessus ainsi que tous les événements du booking (à venir et terminés), triés par date, avec lieu, contact et statut de confirmation.</p>
+        <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+          <button class="cta-inline" onclick="downloadUpcomingBookingPDF()">⬇️ Programme à venir (PDF)</button>
+          <button class="cta-inline" onclick="downloadDoneBookingPDF()">⬇️ Programme déjà effectué (PDF)</button>
+        </div>
+        <p class="form-hint">Deux PDF distincts et téléchargeables séparément : les événements à venir d'un côté, ceux déjà effectués de l'autre — avec le profil (nom, genre, manager/contact), lieu, contact et statut de confirmation.</p>
       </div>
     </div>
     <div class="footnote">Base de données partagée (Firebase) — modules Tableau de bord + Rôles + Calendrier + Projets + Tâches + Booking</div>
