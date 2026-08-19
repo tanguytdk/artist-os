@@ -76,6 +76,10 @@
         </div>
         <span class="badge" id="dateBadge"></span>
       </div>
+      <div class="card">
+        <h2>Changer de rôle</h2>
+        <div id="roleChips" class="role-chips"></div>
+      </div>
       <div class="grid">
         <div>
           <div class="card project-card">
@@ -179,7 +183,13 @@
         <p class="form-hint">La tâche est ajoutée au projet actuellement sélectionné (visible dans l'onglet Projets), avec sa date de début et son échéance. Pour lier une dépendance, utilise le bouton ✎ après création.</p>
       </div>
       <div class="card">
-        <h2 id="tasksViewTitle">Tâches du projet</h2>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+          <h2 id="tasksViewTitle" style="margin:0;">Tâches du projet</h2>
+          <label class="role-filter-toggle">
+            <input type="checkbox" id="tasksRoleFilterToggle" onchange="toggleTasksRoleFilter(this.checked)">
+            <span>Filtrer par mon rôle</span>
+          </label>
+        </div>
         <div id="tasksFullList"></div>
       </div>
     </div>
@@ -244,7 +254,13 @@
           <h1>Programme complet</h1>
           <p>Tous les projets et toutes les tâches, tous rôles confondus, réunis dans un seul calendrier.</p>
         </div>
-        <span class="badge">🗓️ Vue globale</span>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <label class="role-filter-toggle">
+            <input type="checkbox" id="fullProgramRoleFilterToggle" onchange="toggleFullProgramRoleFilter(this.checked)">
+            <span>Filtrer par mon rôle</span>
+          </label>
+          <span class="badge">🗓️ Vue globale</span>
+        </div>
       </div>
       <div class="card">
         <div class="cal-header">
