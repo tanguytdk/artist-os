@@ -98,7 +98,7 @@
         </div>
         <div>
           <div class="card">
-            <h2>Changer de rôle</h2>
+            <h2>Changer de rôle <button type="button" class="role-pin-btn" onclick="changeRolePin()" title="Modifier le code d'accès Artiste / Manager">🔒</button></h2>
             <div id="roleChips" class="role-chips"></div>
           </div>
           <div class="card">
@@ -167,9 +167,15 @@
       </div>
       <div class="card">
         <h2>+ Nouvelle tâche</h2>
-        <form id="newTaskForm" class="new-project-form">
-          <input type="text" id="ntTitle" placeholder="Titre de la tâche" required>
-          <select id="ntRole"></select>
+        <form id="newTaskForm" class="task-form-grid">
+          <div class="field-group">
+            <label class="field-label">Titre de la tâche</label>
+            <input type="text" id="ntTitle" placeholder="Ex. Mixage du titre 3" required>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Rôle</label>
+            <select id="ntRole"></select>
+          </div>
           <div class="field-group">
             <label class="field-label">Date de début</label>
             <input type="date" id="ntDateDebut" required>
@@ -178,7 +184,7 @@
             <label class="field-label">Échéance (deadline)</label>
             <input type="date" id="ntDue" required>
           </div>
-          <button type="submit" class="cta-inline">Créer la tâche</button>
+          <button type="submit" class="cta-inline task-form-submit">Créer la tâche</button>
         </form>
         <p class="form-hint">La tâche est ajoutée au projet actuellement sélectionné (visible dans l'onglet Projets), avec sa date de début et son échéance. Pour lier une dépendance, utilise le bouton ✎ après création.</p>
       </div>
