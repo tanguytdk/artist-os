@@ -75,15 +75,17 @@ function loadLocalPrefs(){
     const raw = localStorage.getItem(LOCAL_KEY);
     if(raw) return JSON.parse(raw);
   }catch(e){}
-  return { currentRole: 'artiste', currentProjectId: null };
+  return { currentRole: 'artiste', currentProjectId: null, tasksRoleFilter: false, fullProgramRoleFilter: false };
 }
 function saveLocalPrefs(){
   localStorage.setItem(LOCAL_KEY, JSON.stringify({
     currentRole: DATA.currentRole,
-    currentProjectId: DATA.currentProjectId
+    currentProjectId: DATA.currentProjectId,
+    tasksRoleFilter: !!DATA.tasksRoleFilter,
+    fullProgramRoleFilter: !!DATA.fullProgramRoleFilter
   }));
 }
-let DATA = Object.assign({ projects: [], tasks: [], notifications: [], bookings: [], artistProfile: defaultArtistProfile() }, loadLocalPrefs());
+let DATA = Object.assign({ projects: [], tasks: [], notifications: [], bookings: [], artistProfile: defaultArtistProfile(), tasksRoleFilter: false, fullProgramRoleFilter: false }, loadLocalPrefs());
 let dataReady = false;
 let projectSelected = false;
 function saveData(data){
@@ -422,14 +424,37 @@ function dueStatusText(task){
 }
 const roleLabel = (id) => (ROLES.find(r=>r.id===id)||{}).label || id;
 /* ============ RENDER ============ */
+function roleTaskCount(roleId){
+  const tasks = projectTasks(DATA.currentProjectId).filter(t => t.situation !== 'terminé');
+  if(roleId === 'artiste' || roleId === 'manager') return tasks.length;
+  return tasks.filter(t => t.role === roleId).length;
+}
+function selectRole(roleId){
+  DATA.currentRole = roleId;
+  saveLocalPrefs();
+  renderAll();
+}
+window.selectRole = selectRole;
 function renderRoleSelect(){
   const sel = document.getElementById('roleSelect');
-  sel.innerHTML = ROLES.map(r => `<option value="${r.id}" ${r.id===DATA.currentRole?'selected':''}>${r.icon} ${r.label}</option>`).join('');
-  sel.onchange = () => {
-    DATA.currentRole = sel.value;
-    saveLocalPrefs();
-    renderAll();
-  };
+  sel.innerHTML = ROLES.map(r => {
+    const count = roleTaskCount(r.id);
+    return `<option value="${r.id}" ${r.id===DATA.currentRole?'selected':''}>${r.icon} ${r.label}${count>0?` (${count})`:''}</option>`;
+  }).join('');
+  sel.onchange = () => selectRole(sel.value);
+}
+function renderRoleChips(){
+  const el = document.getElementById('roleChips');
+  if(!el) return;
+  el.innerHTML = ROLES.map(r => {
+    const count = roleTaskCount(r.id);
+    const active = r.id === DATA.currentRole;
+    return `<button type="button" class="role-chip ${active?'active':''}" onclick="selectRole('${r.id}')">
+      <span class="role-chip-icon">${r.icon}</span>
+      <span class="role-chip-label">${r.label}</span>
+      ${count>0?`<span class="role-chip-count">${count}</span>`:''}
+    </button>`;
+  }).join('');
 }
 function myTasks(){
   const role = DATA.currentRole;
@@ -459,10 +484,19 @@ function computeProgress(projectId){
 function renderHero(){
   const role = ROLES.find(r=>r.id===DATA.currentRole);
   document.getElementById('heroTitle').textContent = `Bon retour, ${role.label}`;
-  const relevant = myTasks().filter(t => t.situation !== 'terminé').length;
-  document.getElementById('heroSub').textContent = relevant > 0
-    ? `${relevant} tâche${relevant>1?'s':''} te concerne${relevant>1?'nt':''} activement.`
-    : `Aucune tâche active pour toi en ce moment.`;
+  const active = myTasks().filter(t => t.situation !== 'terminé');
+  const late = active.filter(t => isTaskLate(t));
+  const blocked = active.filter(t => effectiveSituation(t).situation === 'bloqué');
+  const subEl = document.getElementById('heroSub');
+  if(late.length > 0){
+    subEl.textContent = `⚠️ ${late.length} tâche${late.length>1?'s':''} en retard te concerne${late.length>1?'nt':''}. À traiter en priorité.`;
+  } else if(blocked.length > 0){
+    subEl.textContent = `🟠 ${blocked.length} tâche${blocked.length>1?'s':''} bloquée${blocked.length>1?'s':''} te concerne${blocked.length>1?'nt':''}.`;
+  } else if(active.length > 0){
+    subEl.textContent = `${active.length} tâche${active.length>1?'s':''} te concerne${active.length>1?'nt':''} activement. Tout est sous contrôle 👌`;
+  } else {
+    subEl.textContent = `Rien à faire pour toi en ce moment, tu peux souffler 😌`;
+  }
   document.getElementById('dateBadge').textContent = new Date().toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'});
 }
 function renderProject(){
@@ -546,15 +580,18 @@ function renderAlerts(){
 }
 function renderNotifications(){
   const el = document.getElementById('notifList');
-  el.innerHTML = DATA.notifications.map(n => `
+  const showAll = DATA.currentRole === 'artiste' || DATA.currentRole === 'manager';
+  const list = showAll ? DATA.notifications : DATA.notifications.filter(n => !n.role || n.role === DATA.currentRole);
+  el.innerHTML = list.length ? list.map(n => `
     <div class="notif"><div class="time mono">${n.time}</div><div class="txt">${n.text}</div></div>
-  `).join('');
+  `).join('') : `<div class="empty">Aucune notification pour ce rôle pour l'instant.</div>`;
 }
 function renderAll(){
   if(!dataReady || !DATA.projects || !DATA.projects.length){
     return;
   }
   renderRoleSelect();
+  renderRoleChips();
   renderHero();
   renderProject();
   renderTodayList();
@@ -675,9 +712,17 @@ function shiftFullMonth(delta){
   renderFullCalendar();
 }
 window.shiftFullMonth = shiftFullMonth;
+function toggleFullProgramRoleFilter(checked){
+  DATA.fullProgramRoleFilter = checked;
+  saveLocalPrefs();
+  renderFullCalendar();
+}
+window.toggleFullProgramRoleFilter = toggleFullProgramRoleFilter;
 function allTasksByDate(){
   const map = {};
-  (DATA.tasks || []).forEach(t => {
+  const filterOn = DATA.fullProgramRoleFilter && DATA.currentRole !== 'artiste' && DATA.currentRole !== 'manager';
+  const source = filterOn ? (DATA.tasks||[]).filter(t => t.role === DATA.currentRole) : (DATA.tasks||[]);
+  source.forEach(t => {
     (map[t.due] = map[t.due] || []).push(t);
   });
   return map;
@@ -685,6 +730,8 @@ function allTasksByDate(){
 function renderFullCalendar(){
   const labelEl = document.getElementById('fullCalMonthLabel');
   if(!labelEl) return;
+  const toggle = document.getElementById('fullProgramRoleFilterToggle');
+  if(toggle) toggle.checked = !!DATA.fullProgramRoleFilter;
   const label = fullCalMonth.toLocaleDateString('fr-FR', {month:'long', year:'numeric'});
   labelEl.textContent = label;
   const map = allTasksByDate();
@@ -1008,6 +1055,12 @@ document.getElementById('newProjectForm').addEventListener('submit', (e) => {
   renderAll();
 });
 /* ============ TASKS VIEW ============ */
+function toggleTasksRoleFilter(checked){
+  DATA.tasksRoleFilter = checked;
+  saveLocalPrefs();
+  renderTasksView();
+}
+window.toggleTasksRoleFilter = toggleTasksRoleFilter;
 function renderTasksView(){
   const proj = currentProject();
   const sel = document.getElementById('ntRole');
@@ -1015,16 +1068,24 @@ function renderTasksView(){
     sel.innerHTML = ROLES.filter(r => r.id !== 'artiste').map(r => `<option value="${r.id}">${r.icon} ${r.label}</option>`).join('');
     sel.dataset.filled = '1';
   }
+  const filterToggle = document.getElementById('tasksRoleFilterToggle');
+  if(filterToggle) filterToggle.checked = !!DATA.tasksRoleFilter;
   if(!proj){
     document.getElementById('tasksViewTitle').textContent = 'Aucun projet';
     document.getElementById('tasksFullList').innerHTML = `<div class="empty">Crée d'abord un projet dans l'onglet Projets.</div>`;
     return;
   }
   document.getElementById('tasksViewTitle').textContent = `Tâches de ${proj.title}`;
-  document.getElementById('tasksSub').textContent = `Toutes les tâches de ${proj.title}, tous métiers confondus.`;
-  const list = projectTasks(proj.id).slice().sort((a,b)=> daysUntil(a.due) - daysUntil(b.due));
+  const roleActive = ROLES.find(r => r.id === DATA.currentRole);
+  const filterOn = DATA.tasksRoleFilter && DATA.currentRole !== 'artiste' && DATA.currentRole !== 'manager';
+  document.getElementById('tasksSub').textContent = filterOn
+    ? `Tâches de ${proj.title} concernant ton rôle actuel (${roleActive.label}).`
+    : `Toutes les tâches de ${proj.title}, tous métiers confondus.`;
+  let list = projectTasks(proj.id);
+  if(filterOn) list = list.filter(t => t.role === DATA.currentRole);
+  list = list.slice().sort((a,b)=> daysUntil(a.due) - daysUntil(b.due));
   const el = document.getElementById('tasksFullList');
-  el.innerHTML = list.length ? list.map(t => taskRowHtml(t)).join('') : `<div class="empty">Aucune tâche pour ce projet pour le moment.</div>`;
+  el.innerHTML = list.length ? list.map(t => taskRowHtml(t)).join('') : `<div class="empty">Aucune tâche ${filterOn ? 'pour ce rôle ' : ''}pour ce projet pour le moment.</div>`;
 }
 document.getElementById('newTaskForm').addEventListener('submit', (e) => {
   e.preventDefault();
@@ -1046,7 +1107,8 @@ document.getElementById('newTaskForm').addEventListener('submit', (e) => {
   });
   DATA.notifications.unshift({
     time: 'À l\'instant',
-    text: `🆕 Nouvelle tâche créée : ${title} (${roleLabel(role)}).`
+    text: `🆕 Nouvelle tâche créée : ${title} (${roleLabel(role)}).`,
+    role
   });
   saveData(DATA);
   e.target.reset();
