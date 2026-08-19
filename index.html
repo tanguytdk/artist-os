@@ -25,6 +25,20 @@
       <button type="submit" class="cta-inline login-btn" id="loginSubmitBtn">Se connecter</button>
     </form>
   </div>
+  <div id="roleSelectScreen" class="login-screen" style="display:none;">
+    <div class="login-card project-select-card">
+      <div class="login-brand"><span class="dot"></span>Tanguy DJE RoiStar</div>
+      <h2>Choisis ton rôle</h2>
+      <p class="login-sub">Sélectionne le rôle avec lequel tu travailles aujourd'hui. Les rôles Artiste et Manager sont protégés par un code.</p>
+      <div id="roleSelectGrid" class="role-chips"></div>
+      <form id="rolePinForm" style="display:none;flex-direction:column;gap:10px;margin-top:4px;">
+        <input type="password" id="rolePinInput" placeholder="Code à 4 chiffres" inputmode="numeric" maxlength="4" autocomplete="off">
+        <div class="login-error" id="rolePinError"></div>
+        <button type="submit" class="cta-inline login-btn">Valider</button>
+        <button type="button" class="icon-btn wide" style="align-self:center;" onclick="cancelRolePinEntry()">‹ Choisir un autre rôle</button>
+      </form>
+    </div>
+  </div>
   <div id="projectSelectScreen" class="login-screen" style="display:none;">
     <div class="login-card project-select-card">
       <div class="login-brand"><span class="dot"></span>Tanguy DJE RoiStar</div>
