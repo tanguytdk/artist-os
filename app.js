@@ -87,17 +87,18 @@ function loadLocalPrefs(){
     const raw = localStorage.getItem(LOCAL_KEY);
     if(raw) return JSON.parse(raw);
   }catch(e){}
-  return { currentRole: 'artiste', currentProjectId: null, tasksRoleFilter: false, fullProgramRoleFilter: false };
+  return { currentRole: 'artiste', currentProjectId: null, tasksRoleFilter: false, calShowAllProjects: false, calShowAllRoles: false };
 }
 function saveLocalPrefs(){
   localStorage.setItem(LOCAL_KEY, JSON.stringify({
     currentRole: DATA.currentRole,
     currentProjectId: DATA.currentProjectId,
     tasksRoleFilter: !!DATA.tasksRoleFilter,
-    fullProgramRoleFilter: !!DATA.fullProgramRoleFilter
+    calShowAllProjects: !!DATA.calShowAllProjects,
+    calShowAllRoles: !!DATA.calShowAllRoles
   }));
 }
-let DATA = Object.assign({ projects: [], tasks: [], notifications: [], bookings: [], artistProfile: defaultArtistProfile(), tasksRoleFilter: false, fullProgramRoleFilter: false }, loadLocalPrefs());
+let DATA = Object.assign({ projects: [], tasks: [], notifications: [], bookings: [], artistProfile: defaultArtistProfile(), tasksRoleFilter: false, calShowAllProjects: false, calShowAllRoles: false }, loadLocalPrefs());
 let dataReady = false;
 let projectSelected = false;
 let roleChosen = false; // se réinitialise à chaque chargement de page / reconnexion
@@ -733,11 +734,8 @@ function renderAll(){
     renderBookingList();
     renderArtistProfile();
   }
-  if(document.getElementById('view-fullprogram').classList.contains('active')){
-    renderFullCalendar();
-  }
 }
-/* ============ CALENDAR ============ */
+/* ============ CALENDRIER (un seul, avec filtres projets/rôles) ============ */
 let currentMonth = new Date();
 currentMonth.setDate(1);
 let selectedCalDate = null;
@@ -747,18 +745,16 @@ function switchView(view){
   document.getElementById('navProjects').classList.toggle('active', view === 'projects');
   document.getElementById('navTasks').classList.toggle('active', view === 'tasks');
   document.getElementById('navBooking').classList.toggle('active', view === 'booking');
-  document.getElementById('navFullProgram').classList.toggle('active', view === 'fullprogram');
   document.getElementById('view-dashboard').classList.toggle('active', view === 'dashboard');
   document.getElementById('view-calendar').classList.toggle('active', view === 'calendar');
   document.getElementById('view-projects').classList.toggle('active', view === 'projects');
   document.getElementById('view-tasks').classList.toggle('active', view === 'tasks');
   document.getElementById('view-booking').classList.toggle('active', view === 'booking');
-  document.getElementById('view-fullprogram').classList.toggle('active', view === 'fullprogram');
   if(view === 'calendar') renderCalendar();
   if(view === 'projects') renderProjectsList();
   if(view === 'tasks') renderTasksView();
   if(view === 'booking'){ renderBookingList(); renderArtistProfile(); }
-  if(view === 'fullprogram') renderFullCalendar();
+  closeGlobalSearch();
 }
 window.switchView = switchView;
 function shiftMonth(delta){
@@ -766,9 +762,38 @@ function shiftMonth(delta){
   renderCalendar();
 }
 window.shiftMonth = shiftMonth;
+function toggleCalShowAllProjects(checked){
+  DATA.calShowAllProjects = checked;
+  saveLocalPrefs();
+  renderCalendar();
+}
+window.toggleCalShowAllProjects = toggleCalShowAllProjects;
+function toggleCalShowAllRoles(checked){
+  if(checked && !roleUnlocked){
+    const p = Object.assign(defaultArtistProfile(), DATA.artistProfile || {});
+    const code = prompt('Cette vue est protégée. Entre le code à 4 chiffres :');
+    const toggle = document.getElementById('calShowAllRolesToggle');
+    if(code === null || code !== (p.rolePin || '0000')){
+      if(code !== null) alert('Code incorrect.');
+      if(toggle) toggle.checked = false;
+      return;
+    }
+    roleUnlocked = true;
+  }
+  DATA.calShowAllRoles = checked;
+  saveLocalPrefs();
+  renderCalendar();
+}
+window.toggleCalShowAllRoles = toggleCalShowAllRoles;
 function tasksByDate(){
   const map = {};
-  myTasks().forEach(t => {
+  const showAllProjects = !!DATA.calShowAllProjects;
+  const showAllRoles = !!DATA.calShowAllRoles || DATA.currentRole === 'artiste' || DATA.currentRole === 'manager';
+  let source = showAllProjects ? (DATA.tasks||[]) : projectTasks(DATA.currentProjectId);
+  if(!showAllRoles){
+    source = source.filter(t => t.role === DATA.currentRole);
+  }
+  source.forEach(t => {
     (map[t.due] = map[t.due] || []).push(t);
   });
   return map;
@@ -776,6 +801,18 @@ function tasksByDate(){
 function renderCalendar(){
   const label = currentMonth.toLocaleDateString('fr-FR', {month:'long', year:'numeric'});
   document.getElementById('calMonthLabel').textContent = label;
+  const allProjectsToggle = document.getElementById('calShowAllProjectsToggle');
+  if(allProjectsToggle) allProjectsToggle.checked = !!DATA.calShowAllProjects;
+  const allRolesToggle = document.getElementById('calShowAllRolesToggle');
+  if(allRolesToggle) allRolesToggle.checked = !!DATA.calShowAllRoles || DATA.currentRole === 'artiste' || DATA.currentRole === 'manager';
+  if(allRolesToggle) allRolesToggle.disabled = DATA.currentRole === 'artiste' || DATA.currentRole === 'manager';
+  const subEl = document.getElementById('calSub');
+  if(subEl){
+    const proj = currentProject();
+    const projBit = DATA.calShowAllProjects ? 'tous projets confondus' : (proj ? `pour "${proj.title}"` : 'pour le projet sélectionné');
+    const roleBit = (DATA.calShowAllRoles || DATA.currentRole === 'artiste' || DATA.currentRole === 'manager') ? 'tous rôles confondus' : 'concernant ton rôle actuel';
+    subEl.textContent = `Échéances ${projBit}, ${roleBit}, par mois.`;
+  }
   const map = tasksByDate();
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
@@ -784,6 +821,7 @@ function renderCalendar(){
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const prevMonthDays = new Date(year, month, 0).getDate();
   const todayStr = new Date().toISOString().slice(0,10);
+  const showProject = !!DATA.calShowAllProjects;
   let cells = [];
   for(let i = startOffset - 1; i >= 0; i--){
     cells.push({day: prevMonthDays - i, outside: true, dateStr: null});
@@ -802,7 +840,10 @@ function renderCalendar(){
     const isToday = c.dateStr === todayStr;
     const pills = tasks.slice(0,3).map(t => {
       const cls = timeColorClass(t);
-      return `<span class="cal-pill ${cls}">${escapeHtml(t.title)}</span>`;
+      const titleSafe = escapeHtml(t.title);
+      if(!showProject) return `<span class="cal-pill ${cls}">${titleSafe}</span>`;
+      const proj = escapeHtml(projectTitleOf(t));
+      return `<span class="cal-pill ${cls}" title="${proj} — ${titleSafe}">${proj} · ${titleSafe}</span>`;
     }).join('');
     const more = tasks.length > 3 ? `<span class="cal-pill more">+${tasks.length - 3}</span>` : '';
     const hasTasks = tasks.length ? 'has-tasks' : '';
@@ -815,103 +856,152 @@ function renderCalendar(){
 function showDayTasks(dateStr){
   selectedCalDate = dateStr;
   const map = tasksByDate();
-  const tasks = map[dateStr] || [];
+  const tasks = (map[dateStr] || []).slice().sort((a,b)=> projectTitleOf(a).localeCompare(projectTitleOf(b)));
   const card = document.getElementById('calDayCard');
   const title = document.getElementById('calDayTitle');
   const list = document.getElementById('calDayTasks');
   const d = new Date(dateStr + 'T00:00:00');
   title.textContent = d.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'});
-  list.innerHTML = tasks.length ? tasks.map(t => taskRowHtml(t, {showProject:true})).join('') : `<div class="empty">Aucune tâche ce jour-là pour ce rôle.</div>`;
+  list.innerHTML = tasks.length ? tasks.map(t => taskRowHtml(t, {showProject: !!DATA.calShowAllProjects})).join('') : `<div class="empty">Aucune tâche ce jour-là.</div>`;
   card.style.display = 'block';
 }
 window.showDayTasks = showDayTasks;
-/* ============ CALENDRIER — PROGRAMME COMPLET (tous projets) ============ */
-let fullCalMonth = new Date();
-fullCalMonth.setDate(1);
-let selectedFullCalDate = null;
-function shiftFullMonth(delta){
-  fullCalMonth.setMonth(fullCalMonth.getMonth() + delta);
-  renderFullCalendar();
+/* ============ RECHERCHE GLOBALE ============ */
+function searchableTasks(){
+  const showAll = DATA.currentRole === 'artiste' || DATA.currentRole === 'manager';
+  return showAll ? (DATA.tasks || []) : (DATA.tasks || []).filter(t => t.role === DATA.currentRole);
 }
-window.shiftFullMonth = shiftFullMonth;
-function toggleFullProgramRoleFilter(checked){
-  DATA.fullProgramRoleFilter = checked;
-  saveLocalPrefs();
-  renderFullCalendar();
-}
-window.toggleFullProgramRoleFilter = toggleFullProgramRoleFilter;
-function allTasksByDate(){
-  const map = {};
-  const filterOn = DATA.fullProgramRoleFilter && DATA.currentRole !== 'artiste' && DATA.currentRole !== 'manager';
-  const source = filterOn ? (DATA.tasks||[]).filter(t => t.role === DATA.currentRole) : (DATA.tasks||[]);
-  source.forEach(t => {
-    (map[t.due] = map[t.due] || []).push(t);
-  });
-  return map;
-}
-function renderFullCalendar(){
-  const labelEl = document.getElementById('fullCalMonthLabel');
-  if(!labelEl) return;
-  const toggle = document.getElementById('fullProgramRoleFilterToggle');
-  if(toggle) toggle.checked = !!DATA.fullProgramRoleFilter;
-  const label = fullCalMonth.toLocaleDateString('fr-FR', {month:'long', year:'numeric'});
-  labelEl.textContent = label;
-  const map = allTasksByDate();
-  const year = fullCalMonth.getFullYear();
-  const month = fullCalMonth.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const startOffset = (firstDay.getDay() + 6) % 7;
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const prevMonthDays = new Date(year, month, 0).getDate();
-  const todayStr = new Date().toISOString().slice(0,10);
-  let cells = [];
-  for(let i = startOffset - 1; i >= 0; i--){
-    cells.push({day: prevMonthDays - i, outside: true, dateStr: null});
+function handleGlobalSearch(query){
+  const box = document.getElementById('globalSearchResults');
+  if(!box) return;
+  const q = (query || '').trim().toLowerCase();
+  if(!q){ box.style.display = 'none'; box.innerHTML = ''; return; }
+  const taskMatches = searchableTasks()
+    .filter(t => t.title.toLowerCase().includes(q))
+    .slice(0, 6)
+    .map(t => ({
+      icon: '📋', title: t.title,
+      sub: `${projectTitleOf(t)} · ${roleLabel(t.role)}`,
+      action: () => { DATA.currentProjectId = t.projectId; saveLocalPrefs(); switchView('tasks'); renderAll(); }
+    }));
+  const projectMatches = (DATA.projects || [])
+    .filter(p => p.title.toLowerCase().includes(q))
+    .slice(0, 4)
+    .map(p => ({
+      icon: '🎵', title: p.title, sub: p.type,
+      action: () => { setCurrentProject(p.id); }
+    }));
+  const bookingMatches = (DATA.bookings || [])
+    .filter(b => b.title.toLowerCase().includes(q))
+    .slice(0, 4)
+    .map(b => ({
+      icon: '🎤', title: b.title, sub: b.location || b.type,
+      action: () => { switchView('booking'); }
+    }));
+  const results = [...taskMatches, ...projectMatches, ...bookingMatches];
+  window.__searchResultActions = results.map(r => r.action);
+  if(!results.length){
+    box.innerHTML = `<div class="search-empty">Aucun résultat pour "${escapeHtml(query.trim())}".</div>`;
+    box.style.display = 'block';
+    return;
   }
-  for(let d = 1; d <= daysInMonth; d++){
-    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    cells.push({day: d, outside: false, dateStr});
-  }
-  while(cells.length % 7 !== 0){
-    cells.push({day: '', outside: true, dateStr: null});
-  }
-  const el = document.getElementById('fullCalGrid');
-  el.innerHTML = cells.map(c => {
-    if(c.outside) return `<div class="cal-day outside"><div class="num">${c.day}</div></div>`;
-    const tasks = map[c.dateStr] || [];
-    const isToday = c.dateStr === todayStr;
-    const pills = tasks.slice(0,3).map(t => {
-      const cls = timeColorClass(t);
-      const proj = escapeHtml(projectTitleOf(t));
-      const titleSafe = escapeHtml(t.title);
-      return `<span class="cal-pill ${cls}" title="${proj} — ${titleSafe}">${proj} · ${titleSafe}</span>`;
-    }).join('');
-    const more = tasks.length > 3 ? `<span class="cal-pill more">+${tasks.length - 3}</span>` : '';
-    const hasTasks = tasks.length ? 'has-tasks' : '';
-    return `<div class="cal-day ${isToday?'today':''} ${hasTasks}" onclick="showFullDayTasks('${c.dateStr}')"><div class="num">${c.day}</div>${pills}${more}</div>`;
-  }).join('');
-  if(selectedFullCalDate){
-    showFullDayTasks(selectedFullCalDate);
-  }
+  box.innerHTML = results.map((r, i) => `
+    <div class="search-result-item" onclick="runGlobalSearchAction(${i})">
+      <span class="search-result-icon">${r.icon}</span>
+      <div class="search-result-text">
+        <div class="search-result-title">${escapeHtml(r.title)}</div>
+        <div class="search-result-sub">${escapeHtml(r.sub)}</div>
+      </div>
+    </div>
+  `).join('');
+  box.style.display = 'block';
 }
-function showFullDayTasks(dateStr){
-  selectedFullCalDate = dateStr;
-  const map = allTasksByDate();
-  const tasks = (map[dateStr] || []).slice().sort((a,b)=> projectTitleOf(a).localeCompare(projectTitleOf(b)));
-  const card = document.getElementById('fullCalDayCard');
-  const title = document.getElementById('fullCalDayTitle');
-  const list = document.getElementById('fullCalDayTasks');
-  const d = new Date(dateStr + 'T00:00:00');
-  title.textContent = d.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'});
-  list.innerHTML = tasks.length ? tasks.map(t => taskRowHtml(t, {showProject:true})).join('') : `<div class="empty">Aucune tâche ce jour-là, tous projets confondus.</div>`;
-  card.style.display = 'block';
+window.handleGlobalSearch = handleGlobalSearch;
+function runGlobalSearchAction(i){
+  const fn = window.__searchResultActions && window.__searchResultActions[i];
+  if(fn) fn();
+  closeGlobalSearch();
 }
-window.showFullDayTasks = showFullDayTasks;
+window.runGlobalSearchAction = runGlobalSearchAction;
+function closeGlobalSearch(){
+  const box = document.getElementById('globalSearchResults');
+  const input = document.getElementById('globalSearchInput');
+  if(box){ box.style.display = 'none'; box.innerHTML = ''; }
+  if(input) input.value = '';
+}
+window.closeGlobalSearch = closeGlobalSearch;
+document.addEventListener('click', (e) => {
+  const wrap = document.querySelector('.global-search-wrap');
+  if(wrap && !wrap.contains(e.target)){
+    const box = document.getElementById('globalSearchResults');
+    if(box) box.style.display = 'none';
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape') closeGlobalSearch();
+});
+/* ============ PETITES CÉLÉBRATIONS ============ */
+function celebrateConfetti(){
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:9999;';
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  const colors = ['#8B5CF6', '#5B9DF9', '#20B26C', '#F5A524', '#EF5A5A'];
+  const pieces = Array.from({length: 140}, () => ({
+    x: Math.random() * canvas.width,
+    y: -20 - Math.random() * canvas.height * 0.5,
+    r: 4 + Math.random() * 5,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    speed: 2 + Math.random() * 3,
+    drift: (Math.random() - 0.5) * 2,
+    rot: Math.random() * Math.PI,
+    rotSpeed: (Math.random() - 0.5) * 0.2,
+  }));
+  let frame = 0;
+  const maxFrames = 220;
+  function tick(){
+    frame++;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    pieces.forEach(p => {
+      p.y += p.speed;
+      p.x += p.drift;
+      p.rot += p.rotSpeed;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.r/2, -p.r/2, p.r, p.r * 0.6);
+      ctx.restore();
+    });
+    if(frame < maxFrames){
+      requestAnimationFrame(tick);
+    } else {
+      canvas.remove();
+    }
+  }
+  tick();
+}
+function showCelebrationToast(message){
+  const toast = document.createElement('div');
+  toast.className = 'celebration-toast';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 400);
+  }, 3200);
+}
 /* ============ INTERACTIONS ============ */
 function changeSituation(taskId, newSituation){
   const task = taskById(taskId);
   if(!task) return;
   const oldSituation = task.situation;
+  const wasLate = isTaskLate(task);
+  const progressBefore = computeProgress(task.projectId);
+  const projTitle = projectTitleOf(task);
   if(newSituation === 'en attente'){
     const reason = prompt('Pourquoi cette tâche est-elle en attente ? (ex. "audio final attendu")', task.waitingReason || '');
     if(reason === null){ renderAll(); return; }
@@ -943,6 +1033,15 @@ function changeSituation(taskId, newSituation){
   }
   saveData(DATA);
   renderAll();
+  if(newSituation === 'terminé' && oldSituation !== 'terminé'){
+    const progressAfter = computeProgress(task.projectId);
+    if(progressBefore < 100 && progressAfter >= 100){
+      celebrateConfetti();
+      showCelebrationToast(`🎉 "${projTitle}" est à 100% !`);
+    } else if(wasLate){
+      showCelebrationToast(`👏 Tâche en retard rattrapée : "${task.title}"`);
+    }
+  }
 }
 window.changeSituation = changeSituation;
 function editTask(id){
