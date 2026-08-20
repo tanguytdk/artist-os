@@ -59,9 +59,8 @@
       <div class="tab" id="navProjects" onclick="switchView('projects')">Projets</div>
       <div class="tab" id="navTasks" onclick="switchView('tasks')">Tâches</div>
       <div class="tab" id="navBooking" onclick="switchView('booking')">Booking</div>
-      <div class="tab" id="navFullProgram" onclick="switchView('fullprogram')">Programme complet</div>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;">
+    <div class="topbar-actions" style="display:flex;align-items:center;gap:10px;">
       <span class="sync-badge" id="syncBadge">🔄 connexion…</span>
       <button class="icon-btn" title="Exporter une sauvegarde" onclick="exportData()">⬇️</button>
       <label class="icon-btn" title="Importer une sauvegarde" style="cursor:pointer;">
@@ -76,6 +75,12 @@
     </div>
   </div>
   <div class="wrap">
+    <div class="global-search-bar">
+      <div class="global-search-wrap">
+        <input type="text" id="globalSearchInput" class="global-search-input" placeholder="🔍 Rechercher une tâche, un projet, un événement…" autocomplete="off" oninput="handleGlobalSearch(this.value)" onfocus="handleGlobalSearch(this.value)">
+        <div id="globalSearchResults" class="global-search-results" style="display:none;"></div>
+      </div>
+    </div>
     <div id="missingDocBanner" class="alert red" style="display:none;">
       <span>🔴</span>
       <div>
@@ -135,6 +140,16 @@
         </div>
       </div>
       <div class="card">
+        <div class="cal-filters">
+          <label class="role-filter-toggle">
+            <input type="checkbox" id="calShowAllProjectsToggle" onchange="toggleCalShowAllProjects(this.checked)">
+            <span>Afficher tous les projets</span>
+          </label>
+          <label class="role-filter-toggle">
+            <input type="checkbox" id="calShowAllRolesToggle" onchange="toggleCalShowAllRoles(this.checked)">
+            <span>Afficher tous les rôles 🔒</span>
+          </label>
+        </div>
         <div class="cal-header">
           <button class="cal-nav" onclick="shiftMonth(-1)">‹</button>
           <div class="cal-month" id="calMonthLabel">—</div>
@@ -269,37 +284,7 @@
         <p class="form-hint">Deux PDF distincts et téléchargeables séparément : les événements à venir d'un côté, ceux déjà effectués de l'autre — avec le profil (nom, genre, manager/contact), lieu, contact et statut de confirmation.</p>
       </div>
     </div>
-    <div id="view-fullprogram" class="view">
-      <div class="hero">
-        <div>
-          <h1>Programme complet</h1>
-          <p>Tous les projets et toutes les tâches, tous rôles confondus, réunis dans un seul calendrier.</p>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <label class="role-filter-toggle">
-            <input type="checkbox" id="fullProgramRoleFilterToggle" onchange="toggleFullProgramRoleFilter(this.checked)">
-            <span>Filtrer par mon rôle</span>
-          </label>
-          <span class="badge">🗓️ Vue globale</span>
-        </div>
-      </div>
-      <div class="card">
-        <div class="cal-header">
-          <button class="cal-nav" onclick="shiftFullMonth(-1)">‹</button>
-          <div class="cal-month" id="fullCalMonthLabel">—</div>
-          <button class="cal-nav" onclick="shiftFullMonth(1)">›</button>
-        </div>
-        <div class="cal-weekdays">
-          <span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span>
-        </div>
-        <div class="cal-grid" id="fullCalGrid"></div>
-      </div>
-      <div class="card" id="fullCalDayCard" style="display:none;">
-        <h2 id="fullCalDayTitle">—</h2>
-        <div id="fullCalDayTasks"></div>
-      </div>
-    </div>
-    <div class="footnote">Base de données partagée (Firebase) — modules Tableau de bord + Rôles + Calendrier + Projets + Tâches + Booking + Programme complet</div>
+    <div class="footnote">Base de données partagée (Firebase) — modules Tableau de bord + Rôles + Calendrier + Projets + Tâches + Booking</div>
   </div>
   </div>
   <script src="app.js"></script>
