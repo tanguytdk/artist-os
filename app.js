@@ -508,7 +508,7 @@ function roleTaskCount(roleId){
   if(roleId === 'artiste' || roleId === 'manager') return tasks.length;
   return tasks.filter(t => t.role === roleId).length;
 }
-const PROTECTED_ROLES = ['artiste', 'manager'];
+const PROTECTED_ROLES = ['artiste', 'manager', 'producteur'];
 function selectRole(roleId){
   if(PROTECTED_ROLES.includes(roleId) && DATA.currentRole !== roleId && !roleUnlocked){
     const p = Object.assign(defaultArtistProfile(), DATA.artistProfile || {});
