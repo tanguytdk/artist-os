@@ -38,7 +38,7 @@ function escapeHtml(str){
     .replace(/'/g, '&#39;');
 }
 function defaultArtistProfile(){
-  return { name:'Tanguy DJE RoiStar', genre:'', bio:'', manager:'', phone:'', email:'', rolePin:'0000' };
+  return { name:'Tanguy DJE RoiStar', genre:'', bio:'', manager:'', phone:'', email:'', rolePin:'0000', calAllAccessPin:'1234' };
 }
 function seedShared(){
   const today = new Date();
@@ -103,6 +103,7 @@ let dataReady = false;
 let projectSelected = false;
 let roleChosen = false; // se réinitialise à chaque chargement de page / reconnexion
 let roleUnlocked = false; // se réinitialise à chaque chargement de page
+let calAllUnlocked = false; // déverrouillage de la vue "programme complet" du calendrier (classe B), se réinitialise à chaque chargement de page
 function saveData(data){
   saveLocalPrefs();
   setSyncBadge('saving');
@@ -309,6 +310,7 @@ function startSync(){
       projectSelected = false;
       roleChosen = false;
       roleUnlocked = false;
+      calAllUnlocked = false;
       clearInactivityTimer();
       showLoginScreen();
       if(loggedOutForInactivity){
@@ -515,24 +517,99 @@ function dueStatusText(task){
   return `${n} JOURS RESTANTS`;
 }
 const roleLabel = (id) => (ROLES.find(r=>r.id===id)||{}).label || id;
+/* ============ MODALE DE CODE PERSONNALISÉE ============
+   Remplace les prompt()/alert() natifs du navigateur (moches et non personnalisables) par une
+   petite fenêtre stylée cohérente avec le reste du site, pour toute demande de code à 4 chiffres. */
+let pinModalEl = null;
+function pinModalEscHandler(e){
+  if(e.key === 'Escape') closePinModal(true);
+}
+function closePinModal(triggerCancel){
+  if(pinModalEl){
+    const onCancel = pinModalEl.__onCancel;
+    pinModalEl.remove();
+    pinModalEl = null;
+    if(triggerCancel && onCancel) onCancel();
+  }
+  document.removeEventListener('keydown', pinModalEscHandler);
+}
+window.closePinModal = closePinModal;
+function openPinModal({ title, message, onConfirm, onCancel }){
+  closePinModal(false);
+  const overlay = document.createElement('div');
+  overlay.className = 'pin-modal-overlay';
+  overlay.innerHTML = `
+    <div class="pin-modal-card">
+      <h3 class="pin-modal-title">${escapeHtml(title || 'Code requis')}</h3>
+      <p class="pin-modal-msg">${escapeHtml(message || 'Entre le code à 4 chiffres.')}</p>
+      <form class="pin-modal-form" id="pinModalForm" novalidate>
+        <input type="password" id="pinModalInput" class="pin-modal-input" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="••••">
+        <div class="pin-modal-error" id="pinModalError"></div>
+        <div class="pin-modal-actions">
+          <button type="button" class="icon-btn wide" id="pinModalCancelBtn">Annuler</button>
+          <button type="submit" class="cta-inline login-btn">Valider</button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.__onCancel = onCancel || null;
+  pinModalEl = overlay;
+  const input = overlay.querySelector('#pinModalInput');
+  const err = overlay.querySelector('#pinModalError');
+  const form = overlay.querySelector('#pinModalForm');
+  const cancelBtn = overlay.querySelector('#pinModalCancelBtn');
+  setTimeout(() => input && input.focus(), 20);
+  overlay.addEventListener('mousedown', (e) => { if(e.target === overlay) closePinModal(true); });
+  cancelBtn.addEventListener('click', () => closePinModal(true));
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const code = input.value.trim();
+    const ok = onConfirm ? onConfirm(code) : true;
+    if(ok === false){
+      err.textContent = 'Code incorrect.';
+      input.value = '';
+      input.focus();
+    } else {
+      overlay.__onCancel = null; // succès : pas d'annulation à déclencher
+      closePinModal(false);
+    }
+  });
+  document.addEventListener('keydown', pinModalEscHandler);
+}
+window.openPinModal = openPinModal;
 /* ============ RENDER ============ */
 function roleTaskCount(roleId){
   const tasks = projectTasks(DATA.currentProjectId).filter(t => t.situation !== 'terminé');
-  if(roleId === 'artiste' || roleId === 'manager') return tasks.length;
+  if(isClassA(roleId)) return tasks.length;
   return tasks.filter(t => t.role === roleId).length;
 }
 const PROTECTED_ROLES = ['artiste', 'manager', 'producteur'];
+/* Classe A = rôles protégés par le code d'accès rôle (0000 par défaut) : ils voient TOUJOURS
+   tout le calendrier (tous projets, tous rôles) sans avoir besoin de cases à cocher.
+   Classe B = tous les autres rôles : par défaut ils ne voient QUE leur propre rôle sur le
+   projet en cours ; pour élargir la vue ("programme complet"), il leur faut un second code
+   (1234 par défaut, distinct du code de rôle). */
+function isClassA(roleId){
+  return PROTECTED_ROLES.includes(roleId || DATA.currentRole);
+}
+window.isClassA = isClassA;
 function selectRole(roleId){
   if(PROTECTED_ROLES.includes(roleId) && DATA.currentRole !== roleId && !roleUnlocked){
-    const p = Object.assign(defaultArtistProfile(), DATA.artistProfile || {});
-    const code = prompt('Ce rôle est protégé par un code. Entre le code à 4 chiffres :');
-    if(code === null){ renderRoleSelect(); renderRoleChips(); return; } // annulé : on ne change rien
-    if(code !== (p.rolePin || '0000')){
-      alert('Code incorrect.');
-      renderRoleSelect(); renderRoleChips();
-      return;
-    }
-    roleUnlocked = true;
+    openPinModal({
+      title: 'Rôle protégé',
+      message: 'Ce rôle est protégé par un code. Entre le code à 4 chiffres :',
+      onConfirm: (code) => {
+        const p = Object.assign(defaultArtistProfile(), DATA.artistProfile || {});
+        if(code !== (p.rolePin || '0000')) return false;
+        roleUnlocked = true;
+        DATA.currentRole = roleId;
+        saveLocalPrefs();
+        renderAll();
+        return true;
+      },
+      onCancel: () => { renderRoleSelect(); renderRoleChips(); }
+    });
+    return;
   }
   DATA.currentRole = roleId;
   saveLocalPrefs();
@@ -541,21 +618,27 @@ function selectRole(roleId){
 window.selectRole = selectRole;
 function changeRolePin(){
   const p = Object.assign(defaultArtistProfile(), DATA.artistProfile || {});
-  const current = prompt('Code actuel :');
-  if(current === null) return;
-  if(current !== (p.rolePin || '0000')){
-    alert('Code actuel incorrect.');
-    return;
-  }
-  const next = prompt('Nouveau code (4 chiffres) :');
-  if(next === null) return;
-  if(!/^\d{4}$/.test(next)){
-    alert('Le code doit contenir exactement 4 chiffres.');
-    return;
-  }
-  DATA.artistProfile = Object.assign({}, p, { rolePin: next });
-  saveData(DATA);
-  alert('Code mis à jour ✅');
+  openPinModal({
+    title: 'Modifier le code de rôle',
+    message: 'Entre le code actuel :',
+    onConfirm: (current) => {
+      if(current !== (p.rolePin || '0000')) return false;
+      setTimeout(() => {
+        openPinModal({
+          title: 'Nouveau code',
+          message: 'Choisis le nouveau code à 4 chiffres :',
+          onConfirm: (next) => {
+            if(!/^\d{4}$/.test(next)) return false;
+            DATA.artistProfile = Object.assign({}, p, { rolePin: next });
+            saveData(DATA);
+            showCelebrationToast('Code mis à jour ✅');
+            return true;
+          }
+        });
+      }, 10);
+      return true;
+    }
+  });
 }
 window.changeRolePin = changeRolePin;
 function renderRoleSelect(){
@@ -582,7 +665,7 @@ function renderRoleChips(){
 function myTasks(){
   const role = DATA.currentRole;
   const inProject = DATA.tasks.filter(t => t.projectId === DATA.currentProjectId);
-  if(role === 'artiste' || role === 'manager') return inProject;
+  if(isClassA(role)) return inProject;
   return inProject.filter(t => t.role === role);
 }
 function projectTitleOf(task){
@@ -703,7 +786,7 @@ function renderAlerts(){
 }
 function renderNotifications(){
   const el = document.getElementById('notifList');
-  const showAll = DATA.currentRole === 'artiste' || DATA.currentRole === 'manager';
+  const showAll = isClassA();
   const list = showAll ? DATA.notifications : DATA.notifications.filter(n => !n.role || n.role === DATA.currentRole);
   el.innerHTML = list.length ? list.map(n => `
     <div class="notif"><div class="time mono">${escapeHtml(n.time)}</div><div class="txt">${escapeHtml(n.text)}</div></div>
@@ -762,23 +845,53 @@ function shiftMonth(delta){
   renderCalendar();
 }
 window.shiftMonth = shiftMonth;
+/* Demande le code "programme complet" (1234 par défaut) avant d'accorder à un rôle de
+   classe B l'accès aux cases à cocher "tous les projets" / "tous les rôles" du calendrier.
+   Une fois déverrouillé (calAllUnlocked), les deux cases restent utilisables librement pour
+   le reste de la session. Les rôles de classe A n'ont jamais besoin de ce code : ils voient
+   déjà tout automatiquement, sans case à cocher. */
+function requestCalAllAccess(toggleId, onGranted){
+  if(calAllUnlocked){ onGranted(); return; }
+  openPinModal({
+    title: 'Programme complet',
+    message: 'Cette vue élargie est protégée par un code à 4 chiffres.',
+    onConfirm: (code) => {
+      const p = Object.assign(defaultArtistProfile(), DATA.artistProfile || {});
+      if(code !== (p.calAllAccessPin || '1234')) return false;
+      calAllUnlocked = true;
+      onGranted();
+      return true;
+    },
+    onCancel: () => {
+      const toggle = document.getElementById(toggleId);
+      if(toggle) toggle.checked = false;
+    }
+  });
+}
 function toggleCalShowAllProjects(checked){
+  if(isClassA()){ renderCalendar(); return; } // classe A : toujours tout, rien à faire
+  if(checked && !calAllUnlocked){
+    requestCalAllAccess('calShowAllProjectsToggle', () => {
+      DATA.calShowAllProjects = true;
+      saveLocalPrefs();
+      renderCalendar();
+    });
+    return;
+  }
   DATA.calShowAllProjects = checked;
   saveLocalPrefs();
   renderCalendar();
 }
 window.toggleCalShowAllProjects = toggleCalShowAllProjects;
 function toggleCalShowAllRoles(checked){
-  if(checked && !roleUnlocked){
-    const p = Object.assign(defaultArtistProfile(), DATA.artistProfile || {});
-    const code = prompt('Cette vue est protégée. Entre le code à 4 chiffres :');
-    const toggle = document.getElementById('calShowAllRolesToggle');
-    if(code === null || code !== (p.rolePin || '0000')){
-      if(code !== null) alert('Code incorrect.');
-      if(toggle) toggle.checked = false;
-      return;
-    }
-    roleUnlocked = true;
+  if(isClassA()){ renderCalendar(); return; } // classe A : toujours tout, rien à faire
+  if(checked && !calAllUnlocked){
+    requestCalAllAccess('calShowAllRolesToggle', () => {
+      DATA.calShowAllRoles = true;
+      saveLocalPrefs();
+      renderCalendar();
+    });
+    return;
   }
   DATA.calShowAllRoles = checked;
   saveLocalPrefs();
@@ -787,8 +900,9 @@ function toggleCalShowAllRoles(checked){
 window.toggleCalShowAllRoles = toggleCalShowAllRoles;
 function tasksByDate(){
   const map = {};
-  const showAllProjects = !!DATA.calShowAllProjects;
-  const showAllRoles = !!DATA.calShowAllRoles || DATA.currentRole === 'artiste' || DATA.currentRole === 'manager';
+  const classA = isClassA();
+  const showAllProjects = classA || !!DATA.calShowAllProjects;
+  const showAllRoles = classA || !!DATA.calShowAllRoles;
   let source = showAllProjects ? (DATA.tasks||[]) : projectTasks(DATA.currentProjectId);
   if(!showAllRoles){
     source = source.filter(t => t.role === DATA.currentRole);
@@ -801,17 +915,25 @@ function tasksByDate(){
 function renderCalendar(){
   const label = currentMonth.toLocaleDateString('fr-FR', {month:'long', year:'numeric'});
   document.getElementById('calMonthLabel').textContent = label;
+  const classA = isClassA();
+  // Classe A : accès complet automatique, on masque entièrement les cases à cocher (inutiles).
+  // Classe B : cases à cocher visibles, protégées par le code "programme complet" (1234).
+  const filtersRow = document.getElementById('calFiltersRow');
+  if(filtersRow) filtersRow.style.display = classA ? 'none' : '';
   const allProjectsToggle = document.getElementById('calShowAllProjectsToggle');
-  if(allProjectsToggle) allProjectsToggle.checked = !!DATA.calShowAllProjects;
+  if(allProjectsToggle) allProjectsToggle.checked = classA ? true : !!DATA.calShowAllProjects;
   const allRolesToggle = document.getElementById('calShowAllRolesToggle');
-  if(allRolesToggle) allRolesToggle.checked = !!DATA.calShowAllRoles || DATA.currentRole === 'artiste' || DATA.currentRole === 'manager';
-  if(allRolesToggle) allRolesToggle.disabled = DATA.currentRole === 'artiste' || DATA.currentRole === 'manager';
+  if(allRolesToggle) allRolesToggle.checked = classA ? true : !!DATA.calShowAllRoles;
   const subEl = document.getElementById('calSub');
   if(subEl){
-    const proj = currentProject();
-    const projBit = DATA.calShowAllProjects ? 'tous projets confondus' : (proj ? `pour "${proj.title}"` : 'pour le projet sélectionné');
-    const roleBit = (DATA.calShowAllRoles || DATA.currentRole === 'artiste' || DATA.currentRole === 'manager') ? 'tous rôles confondus' : 'concernant ton rôle actuel';
-    subEl.textContent = `Échéances ${projBit}, ${roleBit}, par mois.`;
+    if(classA){
+      subEl.textContent = 'Toutes les échéances, tous projets et tous rôles confondus, par mois.';
+    } else {
+      const proj = currentProject();
+      const projBit = DATA.calShowAllProjects ? 'tous projets confondus' : (proj ? `pour "${proj.title}"` : 'pour le projet sélectionné');
+      const roleBit = DATA.calShowAllRoles ? 'tous rôles confondus' : `concernant ton rôle actuel (${roleLabel(DATA.currentRole)})`;
+      subEl.textContent = `Échéances ${projBit}, ${roleBit}, par mois.`;
+    }
   }
   const map = tasksByDate();
   const year = currentMonth.getFullYear();
@@ -821,7 +943,7 @@ function renderCalendar(){
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const prevMonthDays = new Date(year, month, 0).getDate();
   const todayStr = new Date().toISOString().slice(0,10);
-  const showProject = !!DATA.calShowAllProjects;
+  const showProject = classA || !!DATA.calShowAllProjects;
   let cells = [];
   for(let i = startOffset - 1; i >= 0; i--){
     cells.push({day: prevMonthDays - i, outside: true, dateStr: null});
@@ -862,13 +984,13 @@ function showDayTasks(dateStr){
   const list = document.getElementById('calDayTasks');
   const d = new Date(dateStr + 'T00:00:00');
   title.textContent = d.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'});
-  list.innerHTML = tasks.length ? tasks.map(t => taskRowHtml(t, {showProject: !!DATA.calShowAllProjects})).join('') : `<div class="empty">Aucune tâche ce jour-là.</div>`;
+  list.innerHTML = tasks.length ? tasks.map(t => taskRowHtml(t, {showProject: isClassA() || !!DATA.calShowAllProjects})).join('') : `<div class="empty">Aucune tâche ce jour-là.</div>`;
   card.style.display = 'block';
 }
 window.showDayTasks = showDayTasks;
 /* ============ RECHERCHE GLOBALE ============ */
 function searchableTasks(){
-  const showAll = DATA.currentRole === 'artiste' || DATA.currentRole === 'manager';
+  const showAll = isClassA();
   return showAll ? (DATA.tasks || []) : (DATA.tasks || []).filter(t => t.role === DATA.currentRole);
 }
 function handleGlobalSearch(query){
@@ -1299,7 +1421,7 @@ function renderTasksView(){
   }
   document.getElementById('tasksViewTitle').textContent = `Tâches de ${proj.title}`;
   const roleActive = ROLES.find(r => r.id === DATA.currentRole);
-  const filterOn = DATA.tasksRoleFilter && DATA.currentRole !== 'artiste' && DATA.currentRole !== 'manager';
+  const filterOn = DATA.tasksRoleFilter && !isClassA();
   document.getElementById('tasksSub').textContent = filterOn
     ? `Tâches de ${proj.title} concernant ton rôle actuel (${roleActive.label}).`
     : `Toutes les tâches de ${proj.title}, tous métiers confondus.`;
