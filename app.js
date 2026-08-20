@@ -25,6 +25,18 @@ const ROLES = [
   {id:'manager', label:'Manager', icon:'📋'},
 ];
 const LOCAL_KEY = 'artistos_local_v1';
+/* Échappe tout texte saisi par un utilisateur avant de l'insérer dans du HTML,
+   pour empêcher qu'un titre/note contenant des balises (ex. <script>) ne s'exécute
+   dans le navigateur d'un autre membre de l'équipe (faille XSS stockée). */
+function escapeHtml(str){
+  if(str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 function defaultArtistProfile(){
   return { name:'Tanguy DJE RoiStar', genre:'', bio:'', manager:'', phone:'', email:'', rolePin:'0000' };
 }
@@ -226,7 +238,7 @@ function renderProjectSelectDropdown(){
   if(err) err.textContent = '';
   const previousValue = sel.value;
   const sortedProjects = DATA.projects.slice().sort((a,b)=> new Date(a.releaseDate) - new Date(b.releaseDate));
-  sel.innerHTML = sortedProjects.map(p => `<option value="${p.id}">${p.title} — sortie le ${new Date(p.releaseDate + 'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</option>`).join('');
+  sel.innerHTML = sortedProjects.map(p => `<option value="${p.id}">${escapeHtml(p.title)} — sortie le ${new Date(p.releaseDate + 'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</option>`).join('');
   if(sortedProjects.some(p => p.id === previousValue)){
     sel.value = previousValue;
   } else if(DATA.currentProjectId && sortedProjects.some(p => p.id === DATA.currentProjectId)){
@@ -629,21 +641,21 @@ function taskRowHtml(task, opts={}){
   let reasonLine = '';
   if(isBlocked){
     if(eff.autoBlocked){
-      reasonLine = `<div class="task-block-reason">Bloqué par : ${eff.blockedBy.map(b=>`"${b.title}" (${roleLabel(b.role)})`).join(', ')}</div>`;
+      reasonLine = `<div class="task-block-reason">Bloqué par : ${eff.blockedBy.map(b=>`"${escapeHtml(b.title)}" (${roleLabel(b.role)})`).join(', ')}</div>`;
     } else {
-      reasonLine = `<div class="task-block-reason">Bloqué${eff.manualReason ? ` — ${eff.manualReason}` : ''}</div>`;
+      reasonLine = `<div class="task-block-reason">Bloqué${eff.manualReason ? ` — ${escapeHtml(eff.manualReason)}` : ''}</div>`;
     }
   } else if(eff.situation === 'en attente' && eff.waitingReason){
-    reasonLine = `<div class="task-wait-reason">En attente — ${eff.waitingReason}</div>`;
+    reasonLine = `<div class="task-wait-reason">En attente — ${escapeHtml(eff.waitingReason)}</div>`;
   }
-  const projectTag = opts.showProject ? `<span class="task-project-tag">${projectTitleOf(task)}</span>` : '';
+  const projectTag = opts.showProject ? `<span class="task-project-tag">${escapeHtml(projectTitleOf(task))}</span>` : '';
   const situationTag = `<span class="task-situation-tag">${situationLabel(eff.situation)}</span>`;
   const disableSelect = isBlocked && eff.autoBlocked;
   return `
     <div class="task ${isBlocked?'blocked':''}">
       <span class="task-dot ${colorClass}"></span>
       <div class="task-body">
-        <div class="task-title">${task.title} ${situationTag} ${projectTag}</div>
+        <div class="task-title">${escapeHtml(task.title)} ${situationTag} ${projectTag}</div>
         <div class="task-sub">${roleLabel(task.role)} · ${dueStatusText(task)}</div>
         ${reasonLine}
       </div>
@@ -674,14 +686,14 @@ function renderAlerts(){
   const el = document.getElementById('alertsList');
   let html = '';
   late.forEach(t => {
-    html += `<div class="alert red"><span>🔴</span><div><b>${t.title} est en retard</b><p>Échéance dépassée de ${Math.abs(daysUntil(t.due))} jour(s). Les tâches qui en dépendent risquent d'être décalées.</p></div></div>`;
+    html += `<div class="alert red"><span>🔴</span><div><b>${escapeHtml(t.title)} est en retard</b><p>Échéance dépassée de ${Math.abs(daysUntil(t.due))} jour(s). Les tâches qui en dépendent risquent d'être décalées.</p></div></div>`;
   });
   blocked.forEach(t => {
     const eff = effectiveSituation(t);
     const reasonText = eff.autoBlocked
-      ? `En attente de : ${eff.blockedBy.map(b=>b.title).join(', ')}.`
-      : (eff.manualReason ? eff.manualReason : 'Motif non précisé.');
-    html += `<div class="alert orange"><span>🟠</span><div><b>${t.title} est bloquée</b><p>${reasonText}</p></div></div>`;
+      ? `En attente de : ${eff.blockedBy.map(b=>escapeHtml(b.title)).join(', ')}.`
+      : escapeHtml(eff.manualReason ? eff.manualReason : 'Motif non précisé.');
+    html += `<div class="alert orange"><span>🟠</span><div><b>${escapeHtml(t.title)} est bloquée</b><p>${reasonText}</p></div></div>`;
   });
   if(!late.length && !blocked.length){
     html = `<div class="alert green"><span>🟢</span><div><b>Tout est sous contrôle</b><p>Aucune tâche en retard ou bloquée pour ce rôle.</p></div></div>`;
@@ -693,7 +705,7 @@ function renderNotifications(){
   const showAll = DATA.currentRole === 'artiste' || DATA.currentRole === 'manager';
   const list = showAll ? DATA.notifications : DATA.notifications.filter(n => !n.role || n.role === DATA.currentRole);
   el.innerHTML = list.length ? list.map(n => `
-    <div class="notif"><div class="time mono">${n.time}</div><div class="txt">${n.text}</div></div>
+    <div class="notif"><div class="time mono">${escapeHtml(n.time)}</div><div class="txt">${escapeHtml(n.text)}</div></div>
   `).join('') : `<div class="empty">Aucune notification pour ce rôle pour l'instant.</div>`;
 }
 function renderAll(){
@@ -790,7 +802,7 @@ function renderCalendar(){
     const isToday = c.dateStr === todayStr;
     const pills = tasks.slice(0,3).map(t => {
       const cls = timeColorClass(t);
-      return `<span class="cal-pill ${cls}">${t.title}</span>`;
+      return `<span class="cal-pill ${cls}">${escapeHtml(t.title)}</span>`;
     }).join('');
     const more = tasks.length > 3 ? `<span class="cal-pill more">+${tasks.length - 3}</span>` : '';
     const hasTasks = tasks.length ? 'has-tasks' : '';
@@ -870,8 +882,9 @@ function renderFullCalendar(){
     const isToday = c.dateStr === todayStr;
     const pills = tasks.slice(0,3).map(t => {
       const cls = timeColorClass(t);
-      const proj = projectTitleOf(t);
-      return `<span class="cal-pill ${cls}" title="${proj} — ${t.title}">${proj} · ${t.title}</span>`;
+      const proj = escapeHtml(projectTitleOf(t));
+      const titleSafe = escapeHtml(t.title);
+      return `<span class="cal-pill ${cls}" title="${proj} — ${titleSafe}">${proj} · ${titleSafe}</span>`;
     }).join('');
     const more = tasks.length > 3 ? `<span class="cal-pill more">+${tasks.length - 3}</span>` : '';
     const hasTasks = tasks.length ? 'has-tasks' : '';
@@ -1120,7 +1133,7 @@ function renderProjectsList(){
     return `
       <div class="proj-card ${isCurrent?'current':''}" onclick="setCurrentProject('${p.id}')">
         <div class="proj-card-top">
-          <h3>${p.title}</h3>
+          <h3>${escapeHtml(p.title)}</h3>
           <div class="proj-card-actions">
             <span class="proj-health">${healthIcon}</span>
             <button class="icon-btn" title="Resynchroniser les tâches avec la date de sortie" onclick="resyncProjectTasks('${p.id}', event)">🔄</button>
@@ -1243,17 +1256,17 @@ function confirmationTag(b){
 }
 function bookingRowHtml(b){
   const info = bookingStatusInfo(b);
-  const timeStr = b.time ? ` · ${b.time}` : '';
-  const locationStr = b.location ? ` · 📍 ${b.location}` : '';
-  const contactStr = b.contact ? ` · ☎️ ${b.contact}` : '';
+  const timeStr = b.time ? ` · ${escapeHtml(b.time)}` : '';
+  const locationStr = b.location ? ` · 📍 ${escapeHtml(b.location)}` : '';
+  const contactStr = b.contact ? ` · ☎️ ${escapeHtml(b.contact)}` : '';
   const dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'});
   return `
     <div class="task">
       <span class="task-dot ${info.cls}"></span>
       <div class="task-body">
-        <div class="task-title">${b.title} <span class="task-project-tag">${b.type}</span>${confirmationTag(b)}</div>
+        <div class="task-title">${escapeHtml(b.title)} <span class="task-project-tag">${escapeHtml(b.type)}</span>${confirmationTag(b)}</div>
         <div class="task-sub">${dateStr}${timeStr}${locationStr}${contactStr} · ${info.label}</div>
-        ${b.notes ? `<div class="task-block-reason" style="color:var(--muted);">${b.notes}</div>` : ''}
+        ${b.notes ? `<div class="task-block-reason" style="color:var(--muted);">${escapeHtml(b.notes)}</div>` : ''}
       </div>
       <select onchange="changeBookingConfirmation('${b.id}', this.value)" title="Statut de confirmation">
         <option value="confirmé" ${(b.confirmation||'confirmé')==='confirmé'?'selected':''}>Confirmé</option>
@@ -1363,7 +1376,7 @@ function renderArtistProfile(){
     ['Téléphone', p.phone],
     ['Email', p.email],
   ];
-  el.innerHTML = rows.map(([label, val]) => `<div class="row"><b>${label}</b><span>${val ? val : 'Non renseigné'}</span></div>`).join('');
+  el.innerHTML = rows.map(([label, val]) => `<div class="row"><b>${label}</b><span>${val ? escapeHtml(val) : 'Non renseigné'}</span></div>`).join('');
 }
 function editArtistProfile(){
   const p = Object.assign(defaultArtistProfile(), DATA.artistProfile || {});
